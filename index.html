@@ -452,15 +452,16 @@
 
     /**
      * Déduit le rôle de l'auteur à partir du tag IRC `badges`.
-     * broadcaster > moderator > vip > viewer
+     * Priorité : broadcaster > moderator | lead_moderator > vip > viewer
      * Retourne : 'broadcaster' | 'moderator' | 'vip' | 'viewer'
      */
     function parseRole(badgesTag) {
       if (!badgesTag) return 'viewer';
       const badges = badgesTag.split(',').map(b => b.split('/')[0]);
-      if (badges.includes('broadcaster')) return 'broadcaster';
-      if (badges.includes('moderator'))   return 'moderator';
-      if (badges.includes('vip'))         return 'vip';
+      if (badges.includes('broadcaster'))    return 'broadcaster';
+      if (badges.includes('moderator'))      return 'moderator';
+      if (badges.includes('lead_moderator')) return 'moderator';
+      if (badges.includes('vip'))            return 'vip';
       return 'viewer';
     }
 
