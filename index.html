@@ -22,15 +22,18 @@
       --shadow: 0 20px 60px rgba(0,0,0,.35);
       --radius: 16px;
       --radius-sm: 12px;
+      --sidebar-w: 360px;
     }
     * { box-sizing: border-box; }
     html, body { margin: 0; min-height: 100%; background: radial-gradient(circle at top, #162040 0%, var(--bg) 55%); color: var(--text); font-family: Inter, system-ui, sans-serif; }
-    body { padding: 20px; }
+    body { padding: 16px; }
+
+    /* ── Layout ── */
     .app {
       display: grid;
-      grid-template-columns: 380px minmax(420px, 1fr);
-      gap: 20px;
-      min-height: calc(100vh - 40px);
+      grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
+      gap: 16px;
+      min-height: calc(100vh - 32px);
     }
     .panel {
       background: rgba(19,26,46,.88);
@@ -39,171 +42,262 @@
       border-radius: var(--radius);
       box-shadow: var(--shadow);
     }
-    .sidebar { padding: 22px; display: flex; flex-direction: column; gap: 18px; }
-    h1 { margin: 0; font-size: 28px; line-height: 1.1; }
-    .lead { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      display: flex; flex-direction: column;
+      overflow: hidden;
+      transition: width .25s ease;
+    }
+
+    /* Header de la sidebar — toujours visible */
+    .sidebar-header {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .sidebar-header-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .sidebar-title { font-size: 18px; font-weight: 800; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sidebar-subtitle { font-size: 12px; color: var(--muted); margin: 2px 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* Bouton toggle */
+    .toggle-btn {
+      appearance: none; border: 1px solid var(--border); border-radius: 10px;
+      background: var(--panel-3); color: var(--muted);
+      width: 34px; height: 34px; padding: 0; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 16px; line-height: 1;
+      transition: background .15s, color .15s, transform .15s;
+    }
+    .toggle-btn:hover { background: var(--panel-2); color: var(--text); }
+    .toggle-btn svg { transition: transform .25s ease; }
+    .sidebar.collapsed .toggle-btn svg { transform: rotate(180deg); }
+
+    /* Partie repliable */
+    .sidebar-body {
+      display: flex; flex-direction: column; gap: 16px;
+      padding: 18px;
+      overflow: hidden;
+      max-height: 9999px;
+      transition: max-height .35s ease, opacity .25s ease, padding .25s ease;
+      opacity: 1;
+    }
+    .sidebar.collapsed .sidebar-body {
+      max-height: 0;
+      opacity: 0;
+      padding-top: 0;
+      padding-bottom: 0;
+    }
+
+    /* Résumé compact visible quand replié */
+    .sidebar-summary {
+      padding: 12px 18px;
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .sidebar.collapsed .sidebar-summary { display: flex; }
+
+    /* ── Typographie / formulaire ── */
+    h1 { margin: 0; font-size: 26px; line-height: 1.1; }
+    .lead { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
     .stack { display: grid; gap: 12px; }
-    .row { display: grid; gap: 12px; grid-template-columns: 1fr 1fr; }
-    label { display: grid; gap: 8px; font-size: 13px; color: var(--muted); }
+    .row { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
+    label { display: grid; gap: 7px; font-size: 13px; color: var(--muted); }
     input, textarea, select {
       width: 100%; background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
-      border-radius: 12px; padding: 12px 14px; font: inherit;
+      border-radius: 12px; padding: 11px 14px; font: inherit;
     }
-    textarea { min-height: 76px; resize: vertical; }
     input:focus, textarea:focus { outline: 2px solid rgba(124,156,255,.4); border-color: var(--accent); }
     button {
-      appearance: none; border: 0; border-radius: 12px; padding: 12px 16px; font: inherit; font-weight: 700;
+      appearance: none; border: 0; border-radius: 12px; padding: 11px 16px; font: inherit; font-weight: 700;
       color: white; background: linear-gradient(135deg, var(--accent), #5f7dff); cursor: pointer;
-      transition: transform .15s ease, opacity .15s ease, filter .15s ease;
+      transition: transform .15s ease, filter .15s ease;
     }
     button:hover { transform: translateY(-1px); filter: brightness(1.05); }
     button.secondary { background: var(--panel-3); color: var(--text); border: 1px solid var(--border); }
     button.danger { background: linear-gradient(135deg, var(--danger), #ff456e); }
     button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
     .status {
-      padding: 12px 14px; border-radius: 12px; background: rgba(255,255,255,.04); border: 1px solid var(--border);
-      font-size: 14px; color: var(--muted);
+      padding: 11px 14px; border-radius: 12px; background: rgba(255,255,255,.04); border: 1px solid var(--border);
+      font-size: 13px; color: var(--muted);
     }
     .status strong { color: var(--text); }
-    .links { display: grid; gap: 10px; }
+    .links { display: grid; gap: 8px; }
     .linkbox {
-      border: 1px dashed rgba(124,156,255,.35); border-radius: 12px; padding: 12px; background: rgba(124,156,255,.08);
-      font-size: 13px; color: var(--muted); word-break: break-all;
+      border: 1px dashed rgba(124,156,255,.35); border-radius: 12px; padding: 10px 12px; background: rgba(124,156,255,.08);
+      font-size: 12px; color: var(--muted); word-break: break-all;
     }
     .linkbox a { color: #c8d4ff; }
+    .small { font-size: 12px; color: var(--muted); }
+    .pill { display: inline-flex; align-items: center; gap: 7px; background: rgba(93,228,199,.12); color: #c9fff3; border: 1px solid rgba(93,228,199,.2); border-radius: 999px; padding: 6px 11px; font-size: 11px; }
+    .dot-anim { width: 7px; height: 7px; border-radius: 50%; background: var(--accent-2); box-shadow: 0 0 0 5px rgba(93,228,199,.12); }
+
+    /* ── Chat panel ── */
     .main { display: grid; grid-template-rows: auto 1fr; overflow: hidden; }
     .toolbar {
-      display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 18px 20px; border-bottom: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center; gap: 12px;
+      padding: 16px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0;
     }
-    .toolbar h2 { margin: 0; font-size: 18px; }
-    .toolbar p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+    .toolbar h2 { margin: 0; font-size: 17px; }
+    .toolbar p { margin: 3px 0 0; color: var(--muted); font-size: 12px; }
     .chat {
-      overflow: auto; padding: 16px; display: grid; gap: 10px; align-content: start;
+      overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 9px;
       background: linear-gradient(180deg, rgba(255,255,255,.015), transparent 30%);
     }
 
     /* ── Message card ── */
     .msg {
-      border: 1px solid rgba(255,255,255,.07); background: rgba(255,255,255,.03); border-radius: 14px;
-      padding: 12px 14px; cursor: pointer;
+      border: 1px solid rgba(255,255,255,.07); background: rgba(255,255,255,.03); border-radius: 13px;
+      padding: 11px 13px; cursor: pointer;
       transition: transform .12s ease, background .12s ease, border-color .12s ease, opacity .2s ease;
-      position: relative;
     }
     .msg:hover { transform: translateX(2px); background: rgba(255,255,255,.06); border-color: rgba(124,156,255,.35); }
-    .msg .meta {
-      display: flex; align-items: center; gap: 12px; margin-bottom: 6px;
-    }
-    .msg .author { font-weight: 800; font-size: 14px; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .msg .time { color: var(--muted); font-size: 12px; flex-shrink: 0; }
-    .msg .text { font-size: 15px; line-height: 1.45; white-space: pre-wrap; word-break: break-word; }
-
-    /* footer row inside selected card — holds the LIVE badge at bottom-right */
-    .msg-footer {
-      display: none;
-      justify-content: flex-end;
-      margin-top: 8px;
-    }
-    .live-badge {
-      font-size: 10px; letter-spacing: .14em;
-      color: #dbe3ff; background: rgba(124,156,255,.22); padding: 4px 7px; border-radius: 999px;
-    }
-
+    .msg .meta { display: flex; align-items: center; gap: 10px; margin-bottom: 5px; }
+    .msg .author { font-weight: 800; font-size: 13px; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .msg .time { color: var(--muted); font-size: 11px; flex-shrink: 0; }
+    .msg .text { font-size: 14px; line-height: 1.45; white-space: pre-wrap; word-break: break-word; }
+    .msg-footer { display: none; justify-content: flex-end; margin-top: 7px; }
+    .live-badge { font-size: 10px; letter-spacing: .13em; color: #dbe3ff; background: rgba(124,156,255,.22); padding: 3px 7px; border-radius: 999px; }
     .msg.selected {
       background: linear-gradient(135deg, rgba(124,156,255,.16), rgba(93,228,199,.1));
       border-color: rgba(124,156,255,.8);
-      box-shadow: inset 0 0 0 1px rgba(255,255,255,.06), 0 0 0 1px rgba(124,156,255,.22);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.05), 0 0 0 1px rgba(124,156,255,.2);
     }
     .msg.selected .msg-footer { display: flex; }
-    .msg.before-selected { opacity: .38; filter: saturate(.35); }
+    /* Les messages APRÈS la sélection sont grisés (ils sont plus anciens dans l'affichage inversé) */
+    .msg.after-selected { opacity: .38; filter: saturate(.35); }
 
-    .empty {
-      min-height: 100%; display: grid; place-items: center; color: var(--muted); text-align: center; padding: 40px;
-    }
-    .small { font-size: 12px; color: var(--muted); }
-    .pill { display: inline-flex; align-items: center; gap: 8px; background: rgba(93,228,199,.12); color: #c9fff3; border: 1px solid rgba(93,228,199,.2); border-radius: 999px; padding: 8px 12px; font-size: 12px; }
-    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent-2); box-shadow: 0 0 0 6px rgba(93,228,199,.12); }
+    .empty { display: grid; place-items: center; color: var(--muted); text-align: center; padding: 40px; min-height: 200px; }
+
     @media (max-width: 980px) {
       .app { grid-template-columns: 1fr; }
-      .main { min-height: 60vh; }
     }
   </style>
 </head>
 <body>
   <div class="app">
-    <aside class="panel sidebar">
-      <div class="stack">
-        <div class="pill"><span class="dot"></span> Sans bot &bull; WebSocket Twitch IRC</div>
-        <div>
-          <h1>Chatty</h1>
-          <p class="lead">Panneau de contrôle du chat Twitch. Cliquer sur un message pour le projeter dans l'overlay OBS.</p>
+    <!-- ═══ Sidebar ═══ -->
+    <aside class="panel sidebar" id="sidebar">
+
+      <!-- Header toujours visible -->
+      <div class="sidebar-header">
+        <div class="sidebar-header-left">
+          <div>
+            <p class="sidebar-title">Chatty</p>
+            <p class="sidebar-subtitle" id="sidebarSubtitle">Panneau de contrôle</p>
+          </div>
         </div>
+        <button class="toggle-btn" id="toggleBtn" aria-label="Replier/déplier le panneau">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="4 10 8 6 12 10"/>
+          </svg>
+        </button>
       </div>
-      <div class="stack">
-        <label>Chaîne Twitch
-          <input id="channel" type="text" placeholder="ex: zerator">
-        </label>
+
+      <!-- Résumé compact (visible uniquement replié) -->
+      <div class="sidebar-summary">
+        <div class="status" id="statusSummary" style="font-size:12px"><strong>État :</strong> en attente.</div>
         <div class="row">
-          <button id="connectBtn">Connecter</button>
-          <button id="disconnectBtn" class="secondary">Déconnecter</button>
+          <button id="clearBtnCompact" class="secondary" style="font-size:12px;padding:8px 10px">Effacer overlay</button>
+          <button id="simulateBtnCompact" class="danger" style="font-size:12px;padding:8px 10px">Test</button>
         </div>
       </div>
-      <div class="status" id="statusBox"><strong>État :</strong> en attente.</div>
-      <div class="stack">
-        <label>Titre overlay
-          <input id="overlayTitle" type="text" value="Message mis en avant">
-        </label>
-        <label>Accroche secondaire
-          <input id="overlaySubtitle" type="text" value="Sélection depuis le chat en direct">
-        </label>
-      </div>
-      <div class="row">
-        <button id="clearBtn" class="secondary">Effacer overlay</button>
-        <button id="simulateBtn" class="danger">Message test</button>
-      </div>
-      <div class="links">
-        <div class="linkbox">
-          <strong>Panneau de contrôle :</strong><br>
-          <a id="controlLink" href="#" target="_blank" rel="noopener noreferrer"></a>
+
+      <!-- Corps repliable -->
+      <div class="sidebar-body">
+        <div class="stack">
+          <div class="pill"><span class="dot-anim"></span> Sans bot · WebSocket Twitch IRC</div>
+          <p class="lead">Cliquer sur un message pour le projeter dans l'overlay OBS. Les messages antérieurs sont grisés.</p>
         </div>
-        <div class="linkbox">
-          <strong>Overlay OBS (source navigateur) :</strong><br>
-          <a id="overlayLink" href="#" target="_blank" rel="noopener noreferrer"></a>
+
+        <div class="stack">
+          <label>Chaîne Twitch
+            <input id="channel" type="text" placeholder="ex: zerator">
+          </label>
+          <div class="row">
+            <button id="connectBtn">Connecter</button>
+            <button id="disconnectBtn" class="secondary">Déconnecter</button>
+          </div>
         </div>
+
+        <div class="status" id="statusBox"><strong>État :</strong> en attente.</div>
+
+        <div class="stack">
+          <label>Titre overlay
+            <input id="overlayTitle" type="text" value="Message mis en avant">
+          </label>
+          <label>Accroche secondaire
+            <input id="overlaySubtitle" type="text" value="Sélection depuis le chat en direct">
+          </label>
+        </div>
+
+        <div class="row">
+          <button id="clearBtn" class="secondary">Effacer overlay</button>
+          <button id="simulateBtn" class="danger">Message test</button>
+        </div>
+
+        <div class="links">
+          <div class="linkbox"><strong>Panneau :</strong><br><a id="controlLink" href="#" target="_blank" rel="noopener noreferrer"></a></div>
+          <div class="linkbox"><strong>Overlay OBS :</strong><br><a id="overlayLink" href="#" target="_blank" rel="noopener noreferrer"></a></div>
+        </div>
+
+        <p class="small">Dans OBS : ajoute overlay.html comme source navigateur. Ouvre index.html comme dock personnalisé.</p>
       </div>
-      <p class="small">Dans OBS : ajoute l'overlay comme source navigateur. Ouvre le panneau en dock personnalisé ou dans un onglet.</p>
     </aside>
+
+    <!-- ═══ Chat panel ═══ -->
     <section class="panel main">
       <div class="toolbar">
         <div>
           <h2>Chat en direct</h2>
-          <p>Cliquer sur un message l'envoie à l'overlay. Les messages précédents deviennent grisés.</p>
+          <p>Messages les plus récents en premier — cliquer pour mettre en avant dans l'overlay</p>
         </div>
-        <div class="small"><span id="messageCount">0</span> message(s)</div>
+        <div class="small"><span id="messageCount">0</span> msg</div>
       </div>
       <div class="chat" id="chatList">
-        <div class="empty">Aucun message pour le moment.<br>Connecte une chaîne ou utilise le message de test.</div>
+        <div class="empty">Aucun message.<br>Connecte une chaîne ou utilise le bouton test.</div>
       </div>
     </section>
   </div>
-  <script>
-    const channelInput = document.getElementById('channel');
-    const connectBtn   = document.getElementById('connectBtn');
-    const disconnectBtn= document.getElementById('disconnectBtn');
-    const clearBtn     = document.getElementById('clearBtn');
-    const simulateBtn  = document.getElementById('simulateBtn');
-    const titleInput   = document.getElementById('overlayTitle');
-    const subtitleInput= document.getElementById('overlaySubtitle');
-    const chatList     = document.getElementById('chatList');
-    const statusBox    = document.getElementById('statusBox');
-    const messageCount = document.getElementById('messageCount');
-    const controlLink  = document.getElementById('controlLink');
-    const overlayLink  = document.getElementById('overlayLink');
 
+  <script>
+    /* ── DOM refs ── */
+    const channelInput   = document.getElementById('channel');
+    const connectBtn     = document.getElementById('connectBtn');
+    const disconnectBtn  = document.getElementById('disconnectBtn');
+    const clearBtn       = document.getElementById('clearBtn');
+    const clearBtnC      = document.getElementById('clearBtnCompact');
+    const simulateBtn    = document.getElementById('simulateBtn');
+    const simulateBtnC   = document.getElementById('simulateBtnCompact');
+    const titleInput     = document.getElementById('overlayTitle');
+    const subtitleInput  = document.getElementById('overlaySubtitle');
+    const chatList       = document.getElementById('chatList');
+    const statusBox      = document.getElementById('statusBox');
+    const statusSummary  = document.getElementById('statusSummary');
+    const messageCount   = document.getElementById('messageCount');
+    const controlLink    = document.getElementById('controlLink');
+    const overlayLink    = document.getElementById('overlayLink');
+    const sidebar        = document.getElementById('sidebar');
+    const toggleBtn      = document.getElementById('toggleBtn');
+    const sidebarSubtitle= document.getElementById('sidebarSubtitle');
+
+    /* ── State ── */
     const state = {
       socket: null, channel: '', messages: [], selectedId: null,
-      maxMessages: 250, bc: null, reconnectTimer: null, manualClose: false
+      maxMessages: 250, bc: null, reconnectTimer: null, manualClose: false,
+      collapsed: false
     };
 
+    /* ── Sidebar toggle ── */
+    function setSidebarCollapsed(v) {
+      state.collapsed = v;
+      sidebar.classList.toggle('collapsed', v);
+    }
+    toggleBtn.addEventListener('click', () => setSidebarCollapsed(!state.collapsed));
+
+    /* ── Links ── */
     function makeLinks() {
       const href = window.location.href;
       const dir  = href.slice(0, href.lastIndexOf('/') + 1);
@@ -211,42 +305,72 @@
       const ovUrl = dir + 'overlay.html';
       overlayLink.href = ovUrl; overlayLink.textContent = ovUrl;
     }
+
+    /* ── Status ── */
     function setStatus(text, tone) {
-      statusBox.innerHTML = '<strong>État :</strong> ' + text;
-      statusBox.style.borderColor = tone==='error'?'rgba(255,107,138,.35)':tone==='ok'?'rgba(93,228,199,.35)':'var(--border)';
-      statusBox.style.background  = tone==='error'?'rgba(255,107,138,.08)':tone==='ok'?'rgba(93,228,199,.08)':'rgba(255,255,255,.04)';
+      const html = '<strong>État :</strong> ' + text;
+      const bc   = tone==='error'?'rgba(255,107,138,.08)':tone==='ok'?'rgba(93,228,199,.08)':'rgba(255,255,255,.04)';
+      const bord = tone==='error'?'rgba(255,107,138,.35)':tone==='ok'?'rgba(93,228,199,.35)':'var(--border)';
+      [statusBox, statusSummary].forEach(el => {
+        el.innerHTML = html;
+        el.style.background = bc;
+        el.style.borderColor = bord;
+      });
+      // Mise à jour du sous-titre de la sidebar header
+      if (tone === 'ok' && state.channel) {
+        sidebarSubtitle.textContent = '🟢 #' + state.channel;
+      } else if (tone === 'error') {
+        sidebarSubtitle.textContent = '🔴 Déconnecté';
+      } else {
+        sidebarSubtitle.textContent = 'Panneau de contrôle';
+      }
     }
+
+    /* ── BroadcastChannel bridge ── */
     function initBridge() {
       if ('BroadcastChannel' in window) state.bc = new BroadcastChannel('twitch-highlight-overlay');
     }
     function publish(payload) {
-      const full = { ...payload, title: titleInput.value.trim()||'Message mis en avant', subtitle: subtitleInput.value.trim()||'Sélection depuis le chat en direct', emittedAt: Date.now() };
+      const full = { ...payload,
+        title: titleInput.value.trim() || 'Message mis en avant',
+        subtitle: subtitleInput.value.trim() || 'Sélection depuis le chat en direct',
+        emittedAt: Date.now()
+      };
       if (state.bc) state.bc.postMessage(full);
       try { localStorage.setItem('twitch-highlight-sync', JSON.stringify(full)); } catch(_) {}
     }
+
+    /* ── Helpers ── */
     function escapeHtml(s) {
       return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
     }
     function parseIRC(line) {
       const m = line.match(/^(?:@([^ ]+) )?:([^!]+)![^ ]+ PRIVMSG #[^ ]+ :(.+)$/);
       if (!m) return null;
-      const tags = Object.fromEntries((m[1]||'').split(';').filter(Boolean).map(p => { const i=p.indexOf('='); return i===-1?[p,'']:[p.slice(0,i),p.slice(i+1)]; }));
+      const tags = Object.fromEntries((m[1]||'').split(';').filter(Boolean).map(p => {
+        const i = p.indexOf('='); return i===-1 ? [p,''] : [p.slice(0,i), p.slice(i+1)];
+      }));
       return { id: tags.id||crypto.randomUUID(), user: tags['display-name']||m[2], color: tags.color||'#c8d4ff', message: m[3], timestamp: Number(tags['tmi-sent-ts']||Date.now()) };
     }
     function formatTime(ts) {
       return new Date(ts).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
     }
+
+    /* ── Render — newest first ── */
     function renderMessages() {
       messageCount.textContent = state.messages.length;
       if (!state.messages.length) {
-        chatList.innerHTML = '<div class="empty">Aucun message pour le moment.<br>Connecte une chaîne ou utilise le message de test.</div>';
+        chatList.innerHTML = '<div class="empty">Aucun message.<br>Connecte une chaîne ou utilise le bouton test.</div>';
         return;
       }
-      const selIdx = state.messages.findIndex(m => m.id === state.selectedId);
-      chatList.innerHTML = state.messages.map((msg, i) => {
-        const before = selIdx !== -1 && i < selIdx;
+      // On affiche en ordre inversé : le plus récent en haut
+      const reversed = [...state.messages].reverse();
+      const selIdx   = reversed.findIndex(m => m.id === state.selectedId);
+      chatList.innerHTML = reversed.map((msg, i) => {
         const sel    = msg.id === state.selectedId;
-        return `<article class="msg${sel?' selected':''}${before?' before-selected':''}" data-id="${msg.id}">
+        // Les messages qui apparaissent APRÈS dans l'affichage (plus anciens) sont grisés
+        const grayed = selIdx !== -1 && i > selIdx;
+        return `<article class="msg${sel?' selected':''}${grayed?' after-selected':''}" data-id="${msg.id}">
           <div class="meta">
             <span class="author" style="color:${escapeHtml(msg.color)}">${escapeHtml(msg.user)}</span>
             <span class="time">${formatTime(msg.timestamp)}</span>
@@ -256,28 +380,34 @@
         </article>`;
       }).join('');
     }
+
     function addMessage(msg) {
       state.messages.push(msg);
       if (state.messages.length > state.maxMessages) state.messages.shift();
       renderMessages();
-      chatList.scrollTop = chatList.scrollHeight;
+      // En mode newest-first, le nouveau message est en haut → scroll to top
+      chatList.scrollTop = 0;
     }
+
     function selectMessage(id) {
       state.selectedId = id;
       const msg = state.messages.find(m => m.id === id);
       renderMessages();
       if (msg) publish({ type: 'highlight', message: msg, channel: state.channel });
     }
+
     function clearOverlay() {
       state.selectedId = null;
       renderMessages();
       publish({ type: 'clear', channel: state.channel });
     }
+
+    /* ── WebSocket Twitch IRC ── */
     function disconnect(showStatus) {
       state.manualClose = true;
       if (state.reconnectTimer) clearTimeout(state.reconnectTimer);
       if (state.socket) { try { state.socket.close(); } catch(_){} state.socket = null; }
-      if (showStatus) setStatus('déconnecté.');
+      if (showStatus) { setStatus('déconnecté.'); setSidebarCollapsed(false); }
     }
     function connect(channel) {
       disconnect(false); state.manualClose = false;
@@ -292,6 +422,8 @@
         ws.send('NICK justinfan' + Math.floor(Math.random()*100000));
         ws.send('JOIN #' + state.channel);
         setStatus('connecté à #' + state.channel, 'ok');
+        // Repli automatique dès que la connexion est établie
+        setSidebarCollapsed(true);
       });
       ws.addEventListener('message', e => {
         for (const line of e.data.split('\r\n').filter(Boolean)) {
@@ -305,20 +437,31 @@
       });
       ws.addEventListener('error', () => setStatus('erreur WebSocket.','error'));
     }
+
+    /* ── Event listeners ── */
     connectBtn.addEventListener('click',    () => connect(channelInput.value));
     disconnectBtn.addEventListener('click', () => disconnect(true));
     clearBtn.addEventListener('click',      clearOverlay);
-    simulateBtn.addEventListener('click', () => {
+    clearBtnC.addEventListener('click',     clearOverlay);
+    simulateBtn.addEventListener('click', doSimulate);
+    simulateBtnC.addEventListener('click', doSimulate);
+    function doSimulate() {
       const fake = { id: crypto.randomUUID(), user: 'ViewerDemo', color: '#7c9cff', message: "Exemple de message mis en avant dans l'overlay OBS.", channel: state.channel||'demo', timestamp: Date.now() };
       addMessage(fake); selectMessage(fake.id);
-    });
+    }
     chatList.addEventListener('click', e => {
       const t = e.target.closest('.msg'); if (t) selectMessage(t.dataset.id);
     });
     titleInput.addEventListener('input',    () => { const m=state.messages.find(x=>x.id===state.selectedId); if(m) publish({type:'highlight',message:m,channel:state.channel}); });
     subtitleInput.addEventListener('input', () => { const m=state.messages.find(x=>x.id===state.selectedId); if(m) publish({type:'highlight',message:m,channel:state.channel}); });
+
+    /* ── Init ── */
     makeLinks(); initBridge();
-    try { const qp=new URLSearchParams(window.location.search); const ch=qp.get('channel'); if(ch){channelInput.value=ch;connect(ch);} } catch(_){}
+    try {
+      const qp = new URLSearchParams(window.location.search);
+      const ch = qp.get('channel');
+      if (ch) { channelInput.value = ch; connect(ch); }
+    } catch(_) {}
   </script>
 </body>
 </html>
