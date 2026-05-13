@@ -22,7 +22,7 @@
       --shadow: 0 20px 60px rgba(0,0,0,.35);
       --radius: 16px;
       --radius-sm: 12px;
-      --sidebar-w: 360px;
+      --sidebar-w: 380px;
     }
     * { box-sizing: border-box; }
     html, body { margin: 0; min-height: 100%; background: radial-gradient(circle at top, #162040 0%, var(--bg) 55%); color: var(--text); font-family: Inter, system-ui, sans-serif; }
@@ -44,13 +44,8 @@
     }
 
     /* ── Sidebar ── */
-    .sidebar {
-      display: flex; flex-direction: column;
-      overflow: hidden;
-      transition: width .25s ease;
-    }
+    .sidebar { display: flex; flex-direction: column; overflow: hidden; }
 
-    /* Header de la sidebar — toujours visible */
     .sidebar-header {
       display: flex; align-items: center; justify-content: space-between; gap: 10px;
       padding: 16px 18px;
@@ -61,20 +56,18 @@
     .sidebar-title { font-size: 18px; font-weight: 800; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .sidebar-subtitle { font-size: 12px; color: var(--muted); margin: 2px 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-    /* Bouton toggle */
     .toggle-btn {
       appearance: none; border: 1px solid var(--border); border-radius: 10px;
       background: var(--panel-3); color: var(--muted);
       width: 34px; height: 34px; padding: 0; flex-shrink: 0;
       display: flex; align-items: center; justify-content: center;
       cursor: pointer; font-size: 16px; line-height: 1;
-      transition: background .15s, color .15s, transform .15s;
+      transition: background .15s, color .15s;
     }
     .toggle-btn:hover { background: var(--panel-2); color: var(--text); }
     .toggle-btn svg { transition: transform .25s ease; }
     .sidebar.collapsed .toggle-btn svg { transform: rotate(180deg); }
 
-    /* Partie repliable */
     .sidebar-body {
       display: flex; flex-direction: column; gap: 16px;
       padding: 18px;
@@ -83,33 +76,26 @@
       transition: max-height .35s ease, opacity .25s ease, padding .25s ease;
       opacity: 1;
     }
-    .sidebar.collapsed .sidebar-body {
-      max-height: 0;
-      opacity: 0;
-      padding-top: 0;
-      padding-bottom: 0;
-    }
+    .sidebar.collapsed .sidebar-body { max-height: 0; opacity: 0; padding-top: 0; padding-bottom: 0; }
 
-    /* Résumé compact visible quand replié */
     .sidebar-summary {
       padding: 12px 18px;
-      display: none;
-      flex-direction: column;
-      gap: 8px;
+      display: none; flex-direction: column; gap: 8px;
     }
     .sidebar.collapsed .sidebar-summary { display: flex; }
 
     /* ── Typographie / formulaire ── */
-    h1 { margin: 0; font-size: 26px; line-height: 1.1; }
-    .lead { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
     .stack { display: grid; gap: 12px; }
     .row { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
     label { display: grid; gap: 7px; font-size: 13px; color: var(--muted); }
+    .lead { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
     input, textarea, select {
-      width: 100%; background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
-      border-radius: 12px; padding: 11px 14px; font: inherit;
+      width: 100%; background: var(--panel-2); color: var(--text);
+      border: 1px solid var(--border); border-radius: 12px;
+      padding: 11px 14px; font: inherit;
     }
     input:focus, textarea:focus { outline: 2px solid rgba(124,156,255,.4); border-color: var(--accent); }
+    textarea { resize: vertical; min-height: 90px; font-family: 'Fira Mono', 'Consolas', monospace; font-size: 12px; line-height: 1.55; }
     button {
       appearance: none; border: 0; border-radius: 12px; padding: 11px 16px; font: inherit; font-weight: 700;
       color: white; background: linear-gradient(135deg, var(--accent), #5f7dff); cursor: pointer;
@@ -120,19 +106,33 @@
     button.danger { background: linear-gradient(135deg, var(--danger), #ff456e); }
     button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
     .status {
-      padding: 11px 14px; border-radius: 12px; background: rgba(255,255,255,.04); border: 1px solid var(--border);
-      font-size: 13px; color: var(--muted);
+      padding: 11px 14px; border-radius: 12px; background: rgba(255,255,255,.04);
+      border: 1px solid var(--border); font-size: 13px; color: var(--muted);
     }
     .status strong { color: var(--text); }
     .links { display: grid; gap: 8px; }
     .linkbox {
-      border: 1px dashed rgba(124,156,255,.35); border-radius: 12px; padding: 10px 12px; background: rgba(124,156,255,.08);
-      font-size: 12px; color: var(--muted); word-break: break-all;
+      border: 1px dashed rgba(124,156,255,.35); border-radius: 12px; padding: 10px 12px;
+      background: rgba(124,156,255,.08); font-size: 12px; color: var(--muted); word-break: break-all;
     }
     .linkbox a { color: #c8d4ff; }
     .small { font-size: 12px; color: var(--muted); }
-    .pill { display: inline-flex; align-items: center; gap: 7px; background: rgba(93,228,199,.12); color: #c9fff3; border: 1px solid rgba(93,228,199,.2); border-radius: 999px; padding: 6px 11px; font-size: 11px; }
+    .pill {
+      display: inline-flex; align-items: center; gap: 7px;
+      background: rgba(93,228,199,.12); color: #c9fff3;
+      border: 1px solid rgba(93,228,199,.2); border-radius: 999px;
+      padding: 6px 11px; font-size: 11px;
+    }
     .dot-anim { width: 7px; height: 7px; border-radius: 50%; background: var(--accent-2); box-shadow: 0 0 0 5px rgba(93,228,199,.12); }
+
+    /* section title dans la sidebar body */
+    .section-title {
+      font-size: 11px; font-weight: 700; letter-spacing: .1em;
+      text-transform: uppercase; color: var(--muted);
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--border);
+      margin-top: 4px;
+    }
 
     /* ── Chat panel ── */
     .main { display: grid; grid-template-rows: auto 1fr; overflow: hidden; }
@@ -149,8 +149,8 @@
 
     /* ── Message card ── */
     .msg {
-      border: 1px solid rgba(255,255,255,.07); background: rgba(255,255,255,.03); border-radius: 13px;
-      padding: 11px 13px; cursor: pointer;
+      border: 1px solid rgba(255,255,255,.07); background: rgba(255,255,255,.03);
+      border-radius: 13px; padding: 11px 13px; cursor: pointer;
       transition: transform .12s ease, background .12s ease, border-color .12s ease, opacity .2s ease;
     }
     .msg:hover { transform: translateX(2px); background: rgba(255,255,255,.06); border-color: rgba(124,156,255,.35); }
@@ -166,9 +166,7 @@
       box-shadow: inset 0 0 0 1px rgba(255,255,255,.05), 0 0 0 1px rgba(124,156,255,.2);
     }
     .msg.selected .msg-footer { display: flex; }
-    /* Les messages APRÈS la sélection sont grisés (ils sont plus anciens dans l'affichage inversé) */
     .msg.after-selected { opacity: .38; filter: saturate(.35); }
-
     .empty { display: grid; place-items: center; color: var(--muted); text-align: center; padding: 40px; min-height: 200px; }
 
     @media (max-width: 980px) {
@@ -212,7 +210,9 @@
           <p class="lead">Cliquer sur un message pour le projeter dans l'overlay OBS. Les messages antérieurs sont grisés.</p>
         </div>
 
+        <!-- Connexion -->
         <div class="stack">
+          <div class="section-title">Connexion</div>
           <label>Chaîne Twitch
             <input id="channel" type="text" placeholder="ex: zerator">
           </label>
@@ -224,13 +224,25 @@
 
         <div class="status" id="statusBox"><strong>État :</strong> en attente.</div>
 
+        <!-- Overlay texts -->
         <div class="stack">
+          <div class="section-title">Textes de l'overlay</div>
           <label>Titre overlay
             <input id="overlayTitle" type="text" value="Message mis en avant">
           </label>
           <label>Accroche secondaire
             <input id="overlaySubtitle" type="text" value="Sélection depuis le chat en direct">
           </label>
+        </div>
+
+        <!-- CSS personnalisé -->
+        <div class="stack">
+          <div class="section-title">CSS personnalisé — boîte overlay</div>
+          <label style="gap:6px">
+            <span>Styles appliqués à <code style="font-size:11px;opacity:.7">.card</code> dans l'overlay</span>
+            <textarea id="customCss" spellcheck="false" placeholder="/* votre CSS ici */"></textarea>
+          </label>
+          <button id="applyCssBtn" class="secondary" style="font-size:12px;padding:9px 12px">Appliquer le CSS</button>
         </div>
 
         <div class="row">
@@ -273,6 +285,8 @@
     const simulateBtnC   = document.getElementById('simulateBtnCompact');
     const titleInput     = document.getElementById('overlayTitle');
     const subtitleInput  = document.getElementById('overlaySubtitle');
+    const customCssArea  = document.getElementById('customCss');
+    const applyCssBtn    = document.getElementById('applyCssBtn');
     const chatList       = document.getElementById('chatList');
     const statusBox      = document.getElementById('statusBox');
     const statusSummary  = document.getElementById('statusSummary');
@@ -282,6 +296,15 @@
     const sidebar        = document.getElementById('sidebar');
     const toggleBtn      = document.getElementById('toggleBtn');
     const sidebarSubtitle= document.getElementById('sidebarSubtitle');
+
+    /* ── CSS par défaut (10 % de transparence sur la boîte) ── */
+    const DEFAULT_CSS = [
+      '/* Transparence 10 % de la boîte de message */',
+      '.card {',
+      '  background: rgba(8, 12, 24, 0.10) !important;',
+      '  backdrop-filter: blur(18px);',
+      '}'
+    ].join('\n');
 
     /* ── State ── */
     const state = {
@@ -309,14 +332,13 @@
     /* ── Status ── */
     function setStatus(text, tone) {
       const html = '<strong>État :</strong> ' + text;
-      const bc   = tone==='error'?'rgba(255,107,138,.08)':tone==='ok'?'rgba(93,228,199,.08)':'rgba(255,255,255,.04)';
-      const bord = tone==='error'?'rgba(255,107,138,.35)':tone==='ok'?'rgba(93,228,199,.35)':'var(--border)';
+      const bc   = tone==='error' ? 'rgba(255,107,138,.08)' : tone==='ok' ? 'rgba(93,228,199,.08)' : 'rgba(255,255,255,.04)';
+      const bord = tone==='error' ? 'rgba(255,107,138,.35)' : tone==='ok' ? 'rgba(93,228,199,.35)' : 'var(--border)';
       [statusBox, statusSummary].forEach(el => {
         el.innerHTML = html;
         el.style.background = bc;
         el.style.borderColor = bord;
       });
-      // Mise à jour du sous-titre de la sidebar header
       if (tone === 'ok' && state.channel) {
         sidebarSubtitle.textContent = '🟢 #' + state.channel;
       } else if (tone === 'error') {
@@ -331,14 +353,29 @@
       if ('BroadcastChannel' in window) state.bc = new BroadcastChannel('twitch-highlight-overlay');
     }
     function publish(payload) {
-      const full = { ...payload,
-        title: titleInput.value.trim() || 'Message mis en avant',
-        subtitle: subtitleInput.value.trim() || 'Sélection depuis le chat en direct',
+      const full = {
+        ...payload,
+        title:     titleInput.value.trim()    || 'Message mis en avant',
+        subtitle:  subtitleInput.value.trim() || 'Sélection depuis le chat en direct',
+        customCss: customCssArea.value,
         emittedAt: Date.now()
       };
       if (state.bc) state.bc.postMessage(full);
       try { localStorage.setItem('twitch-highlight-sync', JSON.stringify(full)); } catch(_) {}
     }
+
+    /* ── CSS personnalisé ── */
+    function publishCssOnly() {
+      const payload = { type: 'css', customCss: customCssArea.value, emittedAt: Date.now() };
+      if (state.bc) state.bc.postMessage(payload);
+      try {
+        /* on patch le dernier état sauvegardé sans écraser le message */
+        const saved = localStorage.getItem('twitch-highlight-sync');
+        const base  = saved ? JSON.parse(saved) : {};
+        localStorage.setItem('twitch-highlight-sync', JSON.stringify({ ...base, customCss: customCssArea.value }));
+      } catch(_) {}
+    }
+    applyCssBtn.addEventListener('click', publishCssOnly);
 
     /* ── Helpers ── */
     function escapeHtml(s) {
@@ -363,12 +400,10 @@
         chatList.innerHTML = '<div class="empty">Aucun message.<br>Connecte une chaîne ou utilise le bouton test.</div>';
         return;
       }
-      // On affiche en ordre inversé : le plus récent en haut
       const reversed = [...state.messages].reverse();
       const selIdx   = reversed.findIndex(m => m.id === state.selectedId);
       chatList.innerHTML = reversed.map((msg, i) => {
         const sel    = msg.id === state.selectedId;
-        // Les messages qui apparaissent APRÈS dans l'affichage (plus anciens) sont grisés
         const grayed = selIdx !== -1 && i > selIdx;
         return `<article class="msg${sel?' selected':''}${grayed?' after-selected':''}" data-id="${msg.id}">
           <div class="meta">
@@ -385,7 +420,6 @@
       state.messages.push(msg);
       if (state.messages.length > state.maxMessages) state.messages.shift();
       renderMessages();
-      // En mode newest-first, le nouveau message est en haut → scroll to top
       chatList.scrollTop = 0;
     }
 
@@ -422,7 +456,6 @@
         ws.send('NICK justinfan' + Math.floor(Math.random()*100000));
         ws.send('JOIN #' + state.channel);
         setStatus('connecté à #' + state.channel, 'ok');
-        // Repli automatique dès que la connexion est établie
         setSidebarCollapsed(true);
       });
       ws.addEventListener('message', e => {
@@ -457,6 +490,8 @@
 
     /* ── Init ── */
     makeLinks(); initBridge();
+    /* Pré-remplir le textarea CSS avec la valeur par défaut */
+    customCssArea.value = DEFAULT_CSS;
     try {
       const qp = new URLSearchParams(window.location.search);
       const ch = qp.get('channel');
