@@ -611,6 +611,9 @@
       disconnect(false); state.manualClose = false;
       state.channel = channel.replace(/^#/,'').trim().toLowerCase();
       if (!state.channel) { setStatus('chaîne invalide.', 'error'); return; }
+      // Vider le chat et l'overlay à chaque nouvelle connexion
+      state.messages = [];
+      clearOverlay();
       loadThirdPartyEmotes(state.channel);
       const ws = new WebSocket('wss://irc-ws.chat.twitch.tv:443');
       state.socket = ws;
