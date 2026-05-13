@@ -41,45 +41,48 @@
       background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.01)), var(--card);
       border: 1px solid var(--border); border-radius: 24px;
       box-shadow: var(--shadow); backdrop-filter: blur(18px);
-      /* PAS de overflow:hidden ni de min-height forcé */
       display: flex; flex-direction: column;
     }
+
+    /* Topline compact : juste le titre, pas de badge ni de subtitle */
     .topline {
-      display: flex; align-items: center; gap: 12px; padding: 14px 18px;
+      display: flex; align-items: center;
+      padding: 9px 18px;
       border-bottom: 1px solid rgba(255,255,255,.08);
       background: linear-gradient(90deg, var(--accent-soft), transparent 70%);
       flex-shrink: 0;
     }
-    .badge {
-      display: inline-flex; align-items: center; justify-content: center;
-      min-width: 34px; height: 34px; border-radius: 999px;
-      background: rgba(124,156,255,.18); border: 1px solid rgba(124,156,255,.28);
-      color: #dbe3ff; font-weight: 800; font-size: 12px; letter-spacing: .08em;
+    .topline h1 {
+      margin: 0;
+      font-size: 13px; font-weight: 700;
+      letter-spacing: .04em;
+      color: var(--muted);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    .titles h1 { margin: 0; font-size: 19px; line-height: 1.1; color: var(--text); }
-    .titles p  { margin: 5px 0 0; font-size: 13px; color: var(--muted); }
-    .content { padding: 22px 22px 24px; }
+
+    .content { padding: 16px 20px 20px; }
     .author {
       display: inline-flex; align-items: center; gap: 10px;
-      margin-bottom: 12px; font-size: 20px; font-weight: 800;
+      margin-bottom: 10px; font-size: 18px; font-weight: 800;
     }
     .author .dot {
-      width: 12px; height: 12px; border-radius: 50%;
-      background: currentColor; box-shadow: 0 0 0 6px rgba(255,255,255,.06);
+      width: 10px; height: 10px; border-radius: 50%;
+      background: currentColor; box-shadow: 0 0 0 5px rgba(255,255,255,.06);
+      flex-shrink: 0;
     }
     .message {
       font-size: clamp(28px, 2.8vw, 44px); line-height: 1.18; color: var(--text); font-weight: 700;
       text-wrap: pretty; word-break: break-word; white-space: pre-wrap;
       text-shadow: 0 2px 10px rgba(0,0,0,.22);
     }
-    .meta { margin-top: 14px; color: var(--muted); font-size: 14px; }
+    .meta { margin-top: 12px; color: var(--muted); font-size: 13px; }
 
     @media (max-width: 700px) {
       body { padding: 18px; }
       .overlay { width: calc(100vw - 36px); }
-      .content { padding: 18px; }
+      .content { padding: 14px 16px 18px; }
       .message { font-size: clamp(22px, 6vw, 32px); }
-      .author { font-size: 18px; }
+      .author { font-size: 16px; }
     }
   </style>
   <!-- CSS personnalisé injecté depuis le panneau de contrôle -->
@@ -89,11 +92,7 @@
   <div class="overlay" id="overlay">
     <div class="card" id="card">
       <div class="topline">
-        <div class="badge">LIVE</div>
-        <div class="titles">
-          <h1 id="title">Message mis en avant</h1>
-          <p id="subtitle">Sélection depuis le chat en direct</p>
-        </div>
+        <h1 id="title">Message mis en avant</h1>
       </div>
       <div class="content">
         <div class="author" id="author" style="color:#c8d4ff">
@@ -108,7 +107,6 @@
   <script>
     const overlay      = document.getElementById('overlay');
     const titleEl      = document.getElementById('title');
-    const subtitleEl   = document.getElementById('subtitle');
     const authorEl     = document.getElementById('author');
     const authorNameEl = authorEl.querySelector('span:last-child');
     const messageEl    = document.getElementById('message');
@@ -120,8 +118,7 @@
     }
 
     function showHighlight(p) {
-      titleEl.textContent      = p.title    || 'Message mis en avant';
-      subtitleEl.textContent   = p.subtitle || 'Sélection depuis le chat en direct';
+      titleEl.textContent      = p.title || 'Message mis en avant';
       authorEl.style.color     = p.message.color || '#c8d4ff';
       authorNameEl.textContent = p.message.user  || 'Viewer';
       messageEl.textContent    = p.message.message || '';
@@ -140,7 +137,6 @@
       if (p.customCss !== undefined) applyCustomCss(p.customCss);
     }
 
-    /* Lecture du CSS sauvegardé avant la première connexion */
     try {
       const saved = localStorage.getItem('twitch-highlight-sync');
       if (saved) {
