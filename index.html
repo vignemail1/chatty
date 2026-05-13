@@ -21,7 +21,6 @@
     .app { display: grid; grid-template-columns: var(--sidebar-w) minmax(0, 1fr); gap: 16px; min-height: calc(100vh - 32px); }
     .panel { background: rgba(19,26,46,.88); backdrop-filter: blur(12px); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
 
-    /* Sidebar */
     .sidebar { display: flex; flex-direction: column; overflow: hidden; }
     .sidebar-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 16px 18px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
     .sidebar-title { font-size: 18px; font-weight: 800; margin: 0; }
@@ -35,7 +34,6 @@
     .sidebar-summary { padding: 12px 18px; display: none; flex-direction: column; gap: 8px; }
     .sidebar.collapsed .sidebar-summary { display: flex; }
 
-    /* Formulaire */
     .stack { display: grid; gap: 12px; }
     .row { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
     label { display: grid; gap: 7px; font-size: 13px; color: var(--muted); }
@@ -58,25 +56,20 @@
     .dot-anim { width: 7px; height: 7px; border-radius: 50%; background: var(--accent-2); box-shadow: 0 0 0 5px rgba(93,228,199,.12); }
     .section-title { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); padding-bottom: 6px; border-bottom: 1px solid var(--border); margin-top: 4px; }
 
-    /* Chat panel */
     .main { display: grid; grid-template-rows: auto 1fr; overflow: hidden; }
     .toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
     .toolbar h2 { margin: 0; font-size: 17px; }
     .toolbar p { margin: 3px 0 0; color: var(--muted); font-size: 12px; }
     .chat { overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 9px; background: linear-gradient(180deg, rgba(255,255,255,.015), transparent 30%); }
 
-    /* Message card */
     .msg { border: 1px solid rgba(255,255,255,.07); background: rgba(255,255,255,.03); border-radius: 13px; padding: 11px 13px; cursor: pointer; transition: transform .12s ease, background .12s ease, border-color .12s ease, opacity .2s ease; }
     .msg:hover { transform: translateX(2px); background: rgba(255,255,255,.06); border-color: rgba(124,156,255,.35); }
     .msg .meta { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
-    .msg .author {
-      font-weight: 800; font-size: 13px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-      padding: 2px 6px; border-radius: 6px; margin: -2px -6px;
-      transition: background .12s;
-    }
+    .msg .author { font-weight: 800; font-size: 13px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px 6px; border-radius: 6px; margin: -2px -6px; transition: background .12s; }
     .msg .author:hover { background: rgba(255,255,255,.1); }
     .msg .time { color: var(--muted); font-size: 11px; flex-shrink: 0; margin-left: auto; }
     .msg .text { font-size: 14px; line-height: 1.45; white-space: pre-wrap; word-break: break-word; }
+    .msg .text img.emote { height: 1.4em; width: auto; vertical-align: middle; margin: 0 1px; }
     .msg-hint { display: none; margin-top: 6px; font-size: 11px; color: var(--muted); text-align: right; }
     .msg.selected .msg-hint { display: block; }
     .msg.selected { background: linear-gradient(135deg, rgba(124,156,255,.16), rgba(93,228,199,.1)); border-color: rgba(124,156,255,.8); box-shadow: inset 0 0 0 1px rgba(255,255,255,.05), 0 0 0 1px rgba(124,156,255,.2); }
@@ -88,7 +81,6 @@
 </head>
 <body>
   <div class="app">
-    <!-- Sidebar -->
     <aside class="panel sidebar" id="sidebar">
       <div class="sidebar-header">
         <div>
@@ -100,7 +92,6 @@
         </button>
       </div>
 
-      <!-- Résumé compact (replié uniquement) -->
       <div class="sidebar-summary">
         <div class="status" id="statusSummary" style="font-size:12px"><strong>État :</strong> en attente.</div>
         <button id="simulateBtnCompact" class="danger" style="font-size:12px;padding:8px 10px">Test</button>
@@ -125,7 +116,6 @@
 
         <div class="status" id="statusBox"><strong>État :</strong> en attente.</div>
 
-        <!-- Textes overlay -->
         <div class="stack">
           <div class="section-title">Textes de l'overlay</div>
           <label>Titre overlay
@@ -133,7 +123,6 @@
           </label>
         </div>
 
-        <!-- CSS personnalisé -->
         <div class="stack">
           <div class="section-title">CSS personnalisé — boîte overlay</div>
           <label style="gap:6px">
@@ -156,7 +145,6 @@
       </div>
     </aside>
 
-    <!-- Chat -->
     <section class="panel main">
       <div class="toolbar">
         <div>
@@ -252,12 +240,71 @@
     function escapeHtml(s) {
       return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
     }
+
+    /**
+     * Parse le tag IRC `emotes` et retourne un tableau trié de
+     * { id, start, end, name } extrait depuis le texte brut du message.
+     * Format IRC : emotes=ID:start-end[,start-end][/ID2:start-end]
+     */
+    function parseEmotes(emoteTag, rawMessage) {
+      if (!emoteTag) return [];
+      const result = [];
+      for (const part of emoteTag.split('/')) {
+        const [id, ranges] = part.split(':');
+        if (!id || !ranges) continue;
+        for (const range of ranges.split(',')) {
+          const [s, e] = range.split('-').map(Number);
+          if (isNaN(s) || isNaN(e)) continue;
+          // slice sur les code points pour gérer les caractères multi-octets
+          const name = [...rawMessage].slice(s, e + 1).join('');
+          result.push({ id, start: s, end: e, name });
+        }
+      }
+      return result.sort((a, b) => a.start - b.start);
+    }
+
+    /**
+     * Convertit un message texte + tableau d’emotes en HTML
+     * (fragments texte intercalés avec des <img>).
+     * Sûr contre XSS : les fragments texte sont passés par escapeHtml.
+     */
+    function renderMessageHtml(rawMessage, emotes) {
+      if (!emotes || !emotes.length) return escapeHtml(rawMessage);
+      const chars = [...rawMessage]; // tableau de code points
+      let html = '';
+      let cursor = 0;
+      for (const em of emotes) {
+        if (em.start > cursor) {
+          html += escapeHtml(chars.slice(cursor, em.start).join(''));
+        }
+        html += `<img class="emote" src="https://static-cdn.jtvnw.net/emoticons/v2/${em.id}/default/dark/2.0" alt="${escapeHtml(em.name)}" title="${escapeHtml(em.name)}" loading="lazy">`;
+        cursor = em.end + 1;
+      }
+      if (cursor < chars.length) html += escapeHtml(chars.slice(cursor).join(''));
+      return html;
+    }
+
     function parseIRC(line) {
       const m = line.match(/^(?:@([^ ]+) )?:([^!]+)![^ ]+ PRIVMSG #[^ ]+ :(.+)$/);
       if (!m) return null;
-      const tags = Object.fromEntries((m[1]||'').split(';').filter(Boolean).map(p => { const i = p.indexOf('='); return i===-1 ? [p,''] : [p.slice(0,i), p.slice(i+1)]; }));
-      return { id: tags.id||crypto.randomUUID(), user: tags['display-name']||m[2], color: tags.color||'#c8d4ff', message: m[3], timestamp: Number(tags['tmi-sent-ts']||Date.now()) };
+      const tags = Object.fromEntries(
+        (m[1]||'').split(';').filter(Boolean).map(p => {
+          const i = p.indexOf('=');
+          return i === -1 ? [p, ''] : [p.slice(0, i), p.slice(i + 1)];
+        })
+      );
+      const rawMessage = m[3];
+      const emotes = parseEmotes(tags.emotes || '', rawMessage);
+      return {
+        id: tags.id || crypto.randomUUID(),
+        user: tags['display-name'] || m[2],
+        color: tags.color || '#c8d4ff',
+        message: rawMessage,
+        emotes,
+        timestamp: Number(tags['tmi-sent-ts'] || Date.now())
+      };
     }
+
     function formatTime(ts) { return new Date(ts).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
 
     function getUserHistory(user) {
@@ -276,12 +323,13 @@
         const sel      = msg.id === state.selectedId;
         const grayed   = selIdx !== -1 && i > selIdx;
         const authorHl = state.historyUser && msg.user.toLowerCase() === state.historyUser.toLowerCase();
-        return `<article class="msg${sel?' selected':''}${grayed?' after-selected':''}" data-id="${msg.id}">
+        const textHtml = renderMessageHtml(msg.message, msg.emotes);
+        return `<article class="msg${sel?' selected':''}${grayed?' after-selected':''}" data-id="${escapeHtml(msg.id)}">
           <div class="meta">
             <span class="author${authorHl?' author-hl':''}" data-user="${escapeHtml(msg.user)}" style="color:${escapeHtml(msg.color)}" title="Cliquer pour voir l'historique">${escapeHtml(msg.user)}</span>
             <span class="time">${formatTime(msg.timestamp)}</span>
           </div>
-          <div class="text">${escapeHtml(msg.message)}</div>
+          <div class="text">${textHtml}</div>
           ${sel ? '<div class="msg-hint">✕ Re-cliquer pour retirer l\'overlay</div>' : ''}
         </article>`;
       }).join('');
@@ -369,7 +417,7 @@
     function doSimulate() {
       const users = ['ViewerDemo','Chat_Fan','SuperViewer'];
       const u = users[Math.floor(Math.random()*users.length)];
-      const fake = { id: crypto.randomUUID(), user: u, color: '#7c9cff', message: "Exemple de message mis en avant dans l'overlay OBS.", timestamp: Date.now() };
+      const fake = { id: crypto.randomUUID(), user: u, color: '#7c9cff', message: "Exemple de message mis en avant dans l'overlay OBS.", timestamp: Date.now(), emotes: [] };
       addMessage(fake); toggleMessage(fake.id);
     }
 
