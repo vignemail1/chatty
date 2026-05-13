@@ -23,11 +23,8 @@
       background: transparent; overflow: hidden;
       font-family: Inter, system-ui, sans-serif;
     }
-    body {
-      display: grid;
-      place-items: end start;
-      padding: 32px;
-    }
+    body { display: grid; place-items: end start; padding: 32px; }
+
     .overlay {
       width: min(980px, calc(100vw - 64px));
       opacity: 0; transform: translateY(18px) scale(.985);
@@ -36,15 +33,13 @@
     }
     .overlay.visible { opacity: 1; transform: translateY(0) scale(1); }
 
-    /* card : hauteur naturelle selon contenu */
+    /* ── Mode highlight (1 message) ── */
     .card {
       background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.01)), var(--card);
       border: 1px solid var(--border); border-radius: 24px;
       box-shadow: var(--shadow); backdrop-filter: blur(18px);
       display: flex; flex-direction: column;
     }
-
-    /* Topline compact : juste le titre, pas de badge ni de subtitle */
     .topline {
       display: flex; align-items: center;
       padding: 9px 18px;
@@ -53,13 +48,10 @@
       flex-shrink: 0;
     }
     .topline h1 {
-      margin: 0;
-      font-size: 13px; font-weight: 700;
-      letter-spacing: .04em;
-      color: var(--muted);
+      margin: 0; font-size: 13px; font-weight: 700;
+      letter-spacing: .04em; color: var(--muted);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-
     .content { padding: 16px 20px 20px; }
     .author {
       display: inline-flex; align-items: center; gap: 10px;
@@ -67,15 +59,31 @@
     }
     .author .dot {
       width: 10px; height: 10px; border-radius: 50%;
-      background: currentColor; box-shadow: 0 0 0 5px rgba(255,255,255,.06);
-      flex-shrink: 0;
+      background: currentColor; box-shadow: 0 0 0 5px rgba(255,255,255,.06); flex-shrink: 0;
     }
     .message {
       font-size: clamp(28px, 2.8vw, 44px); line-height: 1.18; color: var(--text); font-weight: 700;
       text-wrap: pretty; word-break: break-word; white-space: pre-wrap;
       text-shadow: 0 2px 10px rgba(0,0,0,.22);
     }
-    .meta { margin-top: 12px; color: var(--muted); font-size: 13px; }
+    .msg-meta { margin-top: 12px; color: var(--muted); font-size: 13px; }
+
+    /* ── Mode historique (3 derniers messages d'un user) ── */
+    .card.history-mode .topline { background: linear-gradient(90deg, rgba(93,228,199,.14), transparent 70%); }
+    .history-list { display: flex; flex-direction: column; gap: 0; }
+    .history-item {
+      padding: 13px 20px;
+      border-bottom: 1px solid rgba(255,255,255,.06);
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .history-item:last-child { border-bottom: none; padding-bottom: 18px; }
+    .history-item:first-child { padding-top: 16px; }
+    .history-text {
+      font-size: clamp(16px, 1.6vw, 24px); color: var(--text); font-weight: 600;
+      word-break: break-word; white-space: pre-wrap; line-height: 1.3;
+    }
+    .history-time { font-size: 11px; color: var(--muted); }
+    .history-empty { padding: 20px; font-size: 14px; color: var(--muted); text-align: center; }
 
     @media (max-width: 700px) {
       body { padding: 18px; }
@@ -85,7 +93,6 @@
       .author { font-size: 16px; }
     }
   </style>
-  <!-- CSS personnalisé injecté depuis le panneau de contrôle -->
   <style id="customStyle"></style>
 </head>
 <body>
@@ -94,45 +101,75 @@
       <div class="topline">
         <h1 id="title">Message mis en avant</h1>
       </div>
-      <div class="content">
+      <!-- highlight -->
+      <div class="content" id="hlContent">
         <div class="author" id="author" style="color:#c8d4ff">
           <span class="dot"></span><span>Viewer</span>
         </div>
         <div class="message" id="message">Le message sélectionné apparaîtra ici.</div>
-        <div class="meta" id="meta"></div>
+        <div class="msg-meta" id="msgMeta"></div>
       </div>
+      <!-- historique -->
+      <div class="history-list" id="historyList" style="display:none"></div>
     </div>
   </div>
 
   <script>
     const overlay      = document.getElementById('overlay');
+    const card         = document.getElementById('card');
     const titleEl      = document.getElementById('title');
     const authorEl     = document.getElementById('author');
     const authorNameEl = authorEl.querySelector('span:last-child');
     const messageEl    = document.getElementById('message');
-    const metaEl       = document.getElementById('meta');
+    const msgMetaEl    = document.getElementById('msgMeta');
+    const hlContent    = document.getElementById('hlContent');
+    const historyList  = document.getElementById('historyList');
     const customStyle  = document.getElementById('customStyle');
 
     function formatTime(ts) {
       return new Date(ts).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
     }
+    function esc(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
 
     function showHighlight(p) {
+      card.classList.remove('history-mode');
+      hlContent.style.display = '';
+      historyList.style.display = 'none';
       titleEl.textContent      = p.title || 'Message mis en avant';
       authorEl.style.color     = p.message.color || '#c8d4ff';
       authorNameEl.textContent = p.message.user  || 'Viewer';
       messageEl.textContent    = p.message.message || '';
-      metaEl.textContent       = (p.channel ? '#'+p.channel+' · ' : '') + formatTime(p.message.timestamp || Date.now());
+      msgMetaEl.textContent    = (p.channel ? '#'+p.channel+' · ' : '') + formatTime(p.message.timestamp || Date.now());
       overlay.classList.add('visible');
     }
 
-    function applyCustomCss(css) {
-      customStyle.textContent = css || '';
+    function showHistory(p) {
+      card.classList.add('history-mode');
+      hlContent.style.display = 'none';
+      historyList.style.display = '';
+      titleEl.textContent = '💬 ' + (p.user || 'Viewer') + ' — 3 derniers messages';
+      const msgs = p.messages || [];
+      if (!msgs.length) {
+        historyList.innerHTML = '<div class="history-empty">Aucun message trouvé.</div>';
+      } else {
+        historyList.innerHTML = msgs.map(m =>
+          `<div class="history-item">
+            <div class="history-text">${esc(m.message)}</div>
+            <div class="history-time">${formatTime(m.timestamp)}</div>
+          </div>`
+        ).join('');
+      }
+      overlay.classList.add('visible');
     }
+
+    function applyCustomCss(css) { customStyle.textContent = css || ''; }
 
     function handlePayload(p) {
       if (!p || !p.type) return;
       if (p.type === 'highlight') showHighlight(p);
+      if (p.type === 'history')   showHistory(p);
       if (p.type === 'clear')     overlay.classList.remove('visible');
       if (p.customCss !== undefined) applyCustomCss(p.customCss);
     }
