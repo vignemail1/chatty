@@ -91,12 +91,24 @@
       display: flex; align-items: center; gap: 12px;
       margin-bottom: 12px;
     }
+    /* En mode historique l'auteur est affiché dans la topline */
+    .topline .author {
+      margin-bottom: 0;
+      gap: 10px;
+    }
+    .topline .author-avatar,
+    .topline .author-avatar-fallback {
+      width: 32px; height: 32px;
+      font-size: 14px;
+    }
+    .topline .author-name  { font-size: 14px; }
+    .topline .author-role  { font-size: 10px; }
+
     .author-avatar {
       width: 48px; height: 48px; border-radius: 50%;
       object-fit: cover; flex-shrink: 0;
       border: 2px solid var(--role-color, var(--role-viewer));
       background: rgba(255,255,255,.08);
-      /* Fallback affiché si l'image est en erreur */
     }
     .author-avatar-fallback {
       width: 48px; height: 48px; border-radius: 50%; flex-shrink: 0;
@@ -132,7 +144,9 @@
     /* ------------------------------------------------------------------ */
     /* Mode historique                                                      */
     /* ------------------------------------------------------------------ */
-    .card.history-mode .topline { background: linear-gradient(90deg, rgba(93,228,199,.14), transparent 70%); }
+    .card.history-mode .topline {
+      background: linear-gradient(90deg, color-mix(in srgb, var(--role-color, var(--role-viewer)) 18%, transparent), transparent 70%);
+    }
     .history-list { display: flex; flex-direction: column; gap: 0; }
     .history-item {
       padding: 13px 20px;
@@ -162,7 +176,7 @@
 <body data-pos-v="bottom">
   <div class="overlay" id="overlay">
     <div class="card" id="card">
-      <div class="topline">
+      <div class="topline" id="topline">
         <h1 id="title">Message mis en avant</h1>
       </div>
       <div class="content" id="hlContent">
@@ -179,6 +193,7 @@
   <script>
     const overlay      = document.getElementById('overlay');
     const card         = document.getElementById('card');
+    const toplineEl    = document.getElementById('topline');
     const titleEl      = document.getElementById('title');
     const authorEl     = document.getElementById('author');
     const messageEl    = document.getElementById('message');
@@ -256,41 +271,47 @@
     }
 
     /**
-     * Construit le bloc auteur (avatar + nom + rôle) dans la zone #author.
-     * L'avatar est chargé via unavatar.io/twitch/{login} (proxy public, pas de token).
-     * En cas d'échec de l'image, on affiche un fallback initiale.
+     * Construit un bloc auteur (avatar + nom + rôle).
+     * @param {HTMLElement} container  — élément DOM cible
+     * @param {string}      login      — login Twitch (pour l'avatar)
+     * @param {string}      displayName
+     * @param {string}      color      — couleur pseudo
+     * @param {string}      role       — broadcaster | moderator | vip | viewer
+     * @param {number}      size       — 48 (highlight) ou 32 (historique topline)
      */
-    function buildAuthorBlock(login, displayName, color, role) {
+    function buildAuthorBlock(container, login, displayName, color, role, size) {
+      size = size || 48;
       const roleLabel = ROLE_LABEL[role] || '';
       const initial   = (displayName || login || '?')[0].toUpperCase();
       const avatarUrl = login ? `https://unavatar.io/twitch/${encodeURIComponent(login)}` : '';
 
-      // Vider le conteneur
-      authorEl.innerHTML = '';
+      container.innerHTML = '';
 
-      // Avatar
       if (avatarUrl) {
         const img = document.createElement('img');
         img.className = 'author-avatar';
         img.alt = displayName || login;
-        img.width = 48; img.height = 48;
+        img.width = size; img.height = size;
+        img.style.width = size + 'px'; img.style.height = size + 'px';
         img.src = avatarUrl;
         img.addEventListener('error', () => {
-          // Remplacer par fallback initiale
           const fb = document.createElement('div');
           fb.className = 'author-avatar-fallback';
+          fb.style.width = size + 'px'; fb.style.height = size + 'px';
+          fb.style.fontSize = Math.round(size * 0.42) + 'px';
           fb.textContent = initial;
           img.replaceWith(fb);
         });
-        authorEl.appendChild(img);
+        container.appendChild(img);
       } else {
         const fb = document.createElement('div');
         fb.className = 'author-avatar-fallback';
+        fb.style.width = size + 'px'; fb.style.height = size + 'px';
+        fb.style.fontSize = Math.round(size * 0.42) + 'px';
         fb.textContent = initial;
-        authorEl.appendChild(fb);
+        container.appendChild(fb);
       }
 
-      // Infos texte
       const info = document.createElement('div');
       info.className = 'author-info';
 
@@ -307,24 +328,27 @@
         info.appendChild(roleEl);
       }
 
-      authorEl.appendChild(info);
+      container.appendChild(info);
     }
 
     function showHighlight(p) {
       card.classList.remove('history-mode');
       hlContent.style.display = '';
       historyList.style.display = 'none';
-      titleEl.textContent = p.title || 'Message mis en avant';
+
+      // Restaurer la topline en mode titre simple
+      toplineEl.innerHTML = '';
+      const h1 = document.createElement('h1');
+      h1.id = 'title';
+      toplineEl.appendChild(h1);
+      h1.textContent = p.title || 'Message mis en avant';
 
       const msg   = p.message || {};
       const role  = msg.role  || 'viewer';
       const login = msg.login || (msg.user || '').toLowerCase();
 
-      // Appliquer le rôle sur la carte (bord gauche coloré)
       card.setAttribute('data-role', role);
-
-      // Construire bloc auteur
-      buildAuthorBlock(login, msg.user, msg.color, role);
+      buildAuthorBlock(authorEl, login, msg.user, msg.color, role, 48);
 
       messageEl.innerHTML = renderMessageHtml(
         msg.message  || '',
@@ -337,12 +361,32 @@
 
     function showHistory(p) {
       card.classList.add('history-mode');
-      card.setAttribute('data-role', 'viewer'); // pas de rôle spécifique en mode historique
       hlContent.style.display = 'none';
       historyList.style.display = '';
-      const msgs = p.messages || [];
-      const n = msgs.length;
-      titleEl.textContent = '💬 ' + (p.user || 'Viewer') + ` — ${n} dernier${n > 1 ? 's' : ''} message${n > 1 ? 's' : ''}`;
+
+      const msgs  = p.messages || [];
+      const n     = msgs.length;
+
+      // Déduire le rôle depuis le premier message disponible
+      const role  = (msgs[0] && msgs[0].role) || 'viewer';
+      const login = (msgs[0] && (msgs[0].login || (msgs[0].user || '').toLowerCase())) || '';
+      const color = (msgs[0] && msgs[0].color) || '#c8d4ff';
+
+      // Appliquer le bord coloré selon le rôle de l'auteur
+      card.setAttribute('data-role', role);
+
+      // Construire la topline : avatar compact + titre
+      toplineEl.innerHTML = '';
+      const authorInline = document.createElement('div');
+      authorInline.className = 'author';
+      buildAuthorBlock(authorInline, login, p.user || login, color, role, 32);
+      toplineEl.appendChild(authorInline);
+
+      const h1 = document.createElement('h1');
+      h1.id = 'title';
+      h1.textContent = `${n} dernier${n > 1 ? 's' : ''} message${n > 1 ? 's' : ''}`;
+      toplineEl.appendChild(h1);
+
       if (!msgs.length) {
         historyList.innerHTML = '<div class="history-empty">Aucun message trouvé.</div>';
       } else {
