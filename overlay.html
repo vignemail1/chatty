@@ -161,18 +161,32 @@
      *
      * Les emotes Twitch sont toujours passées dans p.message.emotes (tableau
      * [{id, start, end, name}] sérialisé par le panneau de contrôle).
-     * Les emotes tierces sont dans p.thirdPartyEmotes (objet plain).
+     * Les emotes tierces sont dans p.thirdPartyEmotes (objet plain JSON).
+     *
+     * Fix : désérialisation robuste de thirdPartyEmotes (null/undefined/objet vide),
+     * guard sur token non-vide avant lookup dans la Map.
      */
     function renderMessageHtml(rawMessage, twitchEmotes, thirdParty) {
-      const map = thirdParty ? new Map(Object.entries(thirdParty)) : new Map();
+      // Désérialisation robuste : accepte null, undefined, objet vide, ou objet plain
+      let map;
+      if (thirdParty && typeof thirdParty === 'object' && !(thirdParty instanceof Map)) {
+        map = new Map(Object.entries(thirdParty));
+      } else if (thirdParty instanceof Map) {
+        map = thirdParty;
+      } else {
+        map = new Map();
+      }
+
       const chars = [...rawMessage];
       // S'assurer que les emotes Twitch sont bien des objets avec les bons champs
-      const sorted = (Array.isArray(twitchEmotes) ? twitchEmotes : []).slice().sort((a, b) => a.start - b.start);
+      const sorted = (Array.isArray(twitchEmotes) ? twitchEmotes : [])
+        .filter(em => typeof em.start === 'number' && typeof em.end === 'number')
+        .slice()
+        .sort((a, b) => a.start - b.start);
 
       const segments = [];
       let cursor = 0;
       for (const em of sorted) {
-        if (typeof em.start !== 'number' || typeof em.end !== 'number') continue;
         if (em.start > cursor) segments.push({ type: 'text', value: chars.slice(cursor, em.start).join('') });
         segments.push({
           type: 'img',
@@ -189,11 +203,22 @@
         if (seg.type === 'img') {
           html += `<img class="emote" src="${seg.url}" alt="${esc(seg.name)}" title="${esc(seg.name)}" loading="lazy">`;
         } else {
-          for (const token of seg.value.split(/(\s+)/)) {
+          // Split sur les espaces en conservant les séparateurs pour ne pas les perdre
+          // Guard sur token non-vide pour éviter les faux lookups dans la Map
+          const tokens = seg.value.split(/(\s+)/);
+          for (const token of tokens) {
+            if (!token) continue;
+            // Les tokens purement whitespace ne peuvent pas être des emotes
+            if (/^\s+$/.test(token)) {
+              html += esc(token);
+              continue;
+            }
             const tp = map.get(token);
-            html += tp
-              ? `<img class="emote" src="${esc(tp.url)}" alt="${esc(token)}" title="${esc(token)} (${esc(tp.source)})" loading="lazy">`
-              : esc(token);
+            if (tp && tp.url) {
+              html += `<img class="emote" src="${esc(tp.url)}" alt="${esc(token)}" title="${esc(token)} (${esc(tp.source || '?')})" loading="lazy">`;
+            } else {
+              html += esc(token);
+            }
           }
         }
       }
@@ -217,7 +242,6 @@
       titleEl.textContent      = p.title || 'Message mis en avant';
       authorEl.style.color     = p.message.color || '#c8d4ff';
       authorNameEl.textContent = p.message.user  || 'Viewer';
-      // NOTE : p.message.emotes est un tableau plain (sérialisé JSON)
       messageEl.innerHTML = renderMessageHtml(
         p.message.message  || '',
         p.message.emotes   || [],
