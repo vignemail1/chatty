@@ -7,16 +7,16 @@ Pur HTML/CSS/JS, sans bot, sans build, sans compilation.
 
 | Fichier | Rôle |
 |---|---|
-| `overlay-chat-control.html` | Panneau de contrôle — chat défilant, clic pour sélectionner |
-| `overlay-chat-view.html` | Overlay OBS — affiche le message sélectionné |
+| `index.html` | Panneau de contrôle — chat défilant, clic pour sélectionner |
+| `overlay.html` | Overlay OBS — affiche le message sélectionné (fond transparent) |
 
 ## Utilisation
 
-1. Ouvrir `overlay-chat-control.html` dans un navigateur ou comme dock OBS personnalisé.
+1. Ouvrir `index.html` dans un navigateur ou comme dock OBS personnalisé.
 2. Saisir le nom de la chaîne Twitch et cliquer **Connecter**.
 3. Les messages du chat apparaissent en temps réel. Cliquer sur l'un d'eux pour le mettre en avant.
-4. Les messages précédents le message sélectionné sont grisés.
-5. Dans OBS, ajouter `overlay-chat-view.html` comme **source navigateur** (browser source).
+4. Les messages précédant le message sélectionné sont grisés.
+5. Dans OBS, ajouter `overlay.html` comme **source navigateur** (browser source).
 
 ## Communication entre les pages
 
@@ -26,4 +26,6 @@ Aucun serveur backend n'est nécessaire.
 ## GitHub Pages
 
 Le site est automatiquement publié sur GitHub Pages à chaque push d'un tag `v*`.
-URL : `https://vignemail1.github.io/chatty/`
+
+- **Panneau de contrôle :** `https://vignemail1.github.io/chatty/`
+- **Overlay OBS :** `https://vignemail1.github.io/chatty/overlay.html`
