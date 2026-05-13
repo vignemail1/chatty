@@ -55,6 +55,11 @@
     .pill { display: inline-flex; align-items: center; gap: 7px; background: rgba(93,228,199,.12); color: #c9fff3; border: 1px solid rgba(93,228,199,.2); border-radius: 999px; padding: 6px 11px; font-size: 11px; }
     .dot-anim { width: 7px; height: 7px; border-radius: 50%; background: var(--accent-2); box-shadow: 0 0 0 5px rgba(93,228,199,.12); }
     .section-title { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); padding-bottom: 6px; border-bottom: 1px solid var(--border); margin-top: 4px; }
+    .emote-status { font-size: 11px; color: var(--muted); padding: 6px 10px; border-radius: 8px; background: rgba(255,255,255,.03); border: 1px solid var(--border); display: flex; flex-direction: column; gap: 3px; }
+    .emote-status span { display: flex; align-items: center; gap: 5px; }
+    .emote-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+    .emote-dot.ok { background: var(--accent-2); }
+    .emote-dot.err { background: var(--danger); }
 
     .main { display: grid; grid-template-rows: auto 1fr; overflow: hidden; }
     .toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
@@ -68,8 +73,8 @@
     .msg .author { font-weight: 800; font-size: 13px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px 6px; border-radius: 6px; margin: -2px -6px; transition: background .12s; }
     .msg .author:hover { background: rgba(255,255,255,.1); }
     .msg .time { color: var(--muted); font-size: 11px; flex-shrink: 0; margin-left: auto; }
-    .msg .text { font-size: 14px; line-height: 1.45; white-space: pre-wrap; word-break: break-word; }
-    .msg .text img.emote { height: 1.4em; width: auto; vertical-align: middle; margin: 0 1px; }
+    .msg .text { font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+    .msg .text img.emote { height: 1.6em; width: auto; vertical-align: middle; margin: 0 1px; }
     .msg-hint { display: none; margin-top: 6px; font-size: 11px; color: var(--muted); text-align: right; }
     .msg.selected .msg-hint { display: block; }
     .msg.selected { background: linear-gradient(135deg, rgba(124,156,255,.16), rgba(93,228,199,.1)); border-color: rgba(124,156,255,.8); box-shadow: inset 0 0 0 1px rgba(255,255,255,.05), 0 0 0 1px rgba(124,156,255,.2); }
@@ -115,6 +120,15 @@
         </div>
 
         <div class="status" id="statusBox"><strong>État :</strong> en attente.</div>
+
+        <div class="stack">
+          <div class="section-title">Emotes tierces</div>
+          <div class="emote-status" id="emoteStatus">
+            <span><span class="emote-dot" id="dot7tv"></span>7TV — <span id="lbl7tv">non chargé</span></span>
+            <span><span class="emote-dot" id="dotBttv"></span>BTTV — <span id="lblBttv">non chargé</span></span>
+            <span><span class="emote-dot" id="dotFfz"></span>FFZ — <span id="lblFfz">non chargé</span></span>
+          </div>
+        </div>
 
         <div class="stack">
           <div class="section-title">Textes de l'overlay</div>
@@ -205,6 +219,119 @@
       maxMessages: 250, bc: null, reconnectTimer: null, manualClose: false
     };
 
+    // ---------------------------------------------------------------------------
+    // Emote map : { word -> { url, source } }
+    // Priorité : 7TV > BTTV > FFZ (les suivants n’écrasent pas si déjà présent)
+    // ---------------------------------------------------------------------------
+    const emoteMap = new Map(); // word → { url, source }
+
+    function setEmoteDot(id, lblId, state, text) {
+      const dot = document.getElementById(id);
+      const lbl = document.getElementById(lblId);
+      dot.className = 'emote-dot' + (state === 'ok' ? ' ok' : state === 'err' ? ' err' : '');
+      lbl.textContent = text;
+    }
+
+    async function safeFetch(url) {
+      const r = await fetch(url);
+      if (!r.ok) throw new Error(r.status);
+      return r.json();
+    }
+
+    /**
+     * Charge les emotes 7TV pour un channel (login = nom minuscule).
+     * API v3 : /users/twitch/{channel_id} puis /emote-sets/{set_id}
+     * On utilise l’endpoint plus simple /users/twitch/{login} disponible en GQL
+     * mais l’API REST v3 fournie directement : https://7tv.io/v3/users/twitch/{id}
+     * Pour obtenir l’ID Twitch on passe par l’API Helix — non dispo sans token.
+     * Astuce : 7TV expose /v3/users/twitch/{login} si on passe le login en minuscules.
+     */
+    async function load7TV(login) {
+      setEmoteDot('dot7tv','lbl7tv','','chargement...');
+      try {
+        // endpoint channel emotes
+        const data = await safeFetch(`https://7tv.io/v3/users/twitch/${encodeURIComponent(login)}`);
+        const emotes = data.emote_set?.emotes ?? [];
+        let count = 0;
+        for (const e of emotes) {
+          const name = e.name;
+          const file = e.data?.host?.files?.find(f => f.name === '2x.webp' || f.name === '1x.webp') || e.data?.host?.files?.[0];
+          if (!name || !file) continue;
+          const url = 'https:' + e.data.host.url + '/' + file.name;
+          if (!emoteMap.has(name)) { emoteMap.set(name, { url, source: '7tv' }); count++; }
+        }
+        // emotes globales 7TV
+        const global = await safeFetch('https://7tv.io/v3/emote-sets/global');
+        for (const e of global.emotes ?? []) {
+          const name = e.name;
+          const file = e.data?.host?.files?.find(f => f.name === '2x.webp' || f.name === '1x.webp') || e.data?.host?.files?.[0];
+          if (!name || !file) continue;
+          const url = 'https:' + e.data.host.url + '/' + file.name;
+          if (!emoteMap.has(name)) { emoteMap.set(name, { url, source: '7tv' }); count++; }
+        }
+        setEmoteDot('dot7tv','lbl7tv','ok', count + ' emotes');
+      } catch(err) {
+        setEmoteDot('dot7tv','lbl7tv','err','erreur (' + err.message + ')');
+      }
+    }
+
+    async function loadBTTV(login) {
+      setEmoteDot('dotBttv','lblBttv','','chargement...');
+      try {
+        let count = 0;
+        // Globales
+        const global = await safeFetch('https://api.betterttv.net/3/cached/emotes/global');
+        for (const e of global) {
+          if (!emoteMap.has(e.code)) { emoteMap.set(e.code, { url: `https://cdn.betterttv.net/emote/${e.id}/2x`, source: 'bttv' }); count++; }
+        }
+        // Channel (nécessite d’abord l’ID Twitch du channel via l’API BTTV)
+        try {
+          const ch = await safeFetch(`https://api.betterttv.net/3/cached/users/twitch/${encodeURIComponent(login)}`);
+          for (const e of [...(ch.channelEmotes ?? []), ...(ch.sharedEmotes ?? [])]) {
+            if (!emoteMap.has(e.code)) { emoteMap.set(e.code, { url: `https://cdn.betterttv.net/emote/${e.id}/2x`, source: 'bttv' }); count++; }
+          }
+        } catch(_) { /* BTTV channel peut ne pas exister */ }
+        setEmoteDot('dotBttv','lblBttv','ok', count + ' emotes');
+      } catch(err) {
+        setEmoteDot('dotBttv','lblBttv','err','erreur (' + err.message + ')');
+      }
+    }
+
+    async function loadFFZ(login) {
+      setEmoteDot('dotFfz','lblFfz','','chargement...');
+      try {
+        let count = 0;
+        // Globales
+        const global = await safeFetch('https://api.frankerfacez.com/v1/set/global');
+        for (const set of Object.values(global.sets ?? {})) {
+          for (const e of set.emoticons ?? []) {
+            const url = e.urls?.['2'] || e.urls?.['1'];
+            if (url && !emoteMap.has(e.name)) { emoteMap.set(e.name, { url: url.startsWith('//') ? 'https:' + url : url, source: 'ffz' }); count++; }
+          }
+        }
+        // Channel
+        try {
+          const ch = await safeFetch(`https://api.frankerfacez.com/v1/room/${encodeURIComponent(login)}`);
+          for (const set of Object.values(ch.sets ?? {})) {
+            for (const e of set.emoticons ?? []) {
+              const url = e.urls?.['2'] || e.urls?.['1'];
+              if (url && !emoteMap.has(e.name)) { emoteMap.set(e.name, { url: url.startsWith('//') ? 'https:' + url : url, source: 'ffz' }); count++; }
+            }
+          }
+        } catch(_) { /* FFZ room peut ne pas exister */ }
+        setEmoteDot('dotFfz','lblFfz','ok', count + ' emotes');
+      } catch(err) {
+        setEmoteDot('dotFfz','lblFfz','err','erreur (' + err.message + ')');
+      }
+    }
+
+    async function loadThirdPartyEmotes(login) {
+      emoteMap.clear();
+      await Promise.allSettled([load7TV(login), loadBTTV(login), loadFFZ(login)]);
+    }
+
+    // ---------------------------------------------------------------------------
+
     toggleBtn.addEventListener('click', () => sidebar.classList.toggle('collapsed'));
 
     function makeLinks() {
@@ -224,8 +351,13 @@
     }
 
     function initBridge() { if ('BroadcastChannel' in window) state.bc = new BroadcastChannel('twitch-highlight-overlay'); }
+
+    function serializeEmoteMap() {
+      return Object.fromEntries(emoteMap);
+    }
+
     function publish(payload) {
-      const full = { ...payload, title: titleInput.value.trim() || 'Message mis en avant', customCss: customCssArea.value, emittedAt: Date.now() };
+      const full = { ...payload, title: titleInput.value.trim() || 'Message mis en avant', customCss: customCssArea.value, thirdPartyEmotes: serializeEmoteMap(), emittedAt: Date.now() };
       if (state.bc) state.bc.postMessage(full);
       try { localStorage.setItem('twitch-highlight-sync', JSON.stringify(full)); } catch(_) {}
     }
@@ -242,9 +374,7 @@
     }
 
     /**
-     * Parse le tag IRC `emotes` et retourne un tableau trié de
-     * { id, start, end, name } extrait depuis le texte brut du message.
-     * Format IRC : emotes=ID:start-end[,start-end][/ID2:start-end]
+     * Parse le tag IRC `emotes` → tableau trié { id, start, end, name }
      */
     function parseEmotes(emoteTag, rawMessage) {
       if (!emoteTag) return [];
@@ -255,7 +385,6 @@
         for (const range of ranges.split(',')) {
           const [s, e] = range.split('-').map(Number);
           if (isNaN(s) || isNaN(e)) continue;
-          // slice sur les code points pour gérer les caractères multi-octets
           const name = [...rawMessage].slice(s, e + 1).join('');
           result.push({ id, start: s, end: e, name });
         }
@@ -264,23 +393,48 @@
     }
 
     /**
-     * Convertit un message texte + tableau d’emotes en HTML
-     * (fragments texte intercalés avec des <img>).
-     * Sûr contre XSS : les fragments texte sont passés par escapeHtml.
+     * Rend le HTML d’un message en combinant :
+     *  1. Les emotes Twitch (positions IRC exactes)
+     *  2. Les emotes tierces (remplacement token-by-token sur les segments texte restants)
+     *
+     * @param {string} rawMessage  Texte brut du message
+     * @param {Array}  twitchEmotes Tableau { id, start, end, name } (IRC)
+     * @param {Map|Object} thirdParty  emoteMap (word → { url }) pour 7TV/BTTV/FFZ
      */
-    function renderMessageHtml(rawMessage, emotes) {
-      if (!emotes || !emotes.length) return escapeHtml(rawMessage);
-      const chars = [...rawMessage]; // tableau de code points
-      let html = '';
+    function renderMessageHtml(rawMessage, twitchEmotes, thirdParty) {
+      const map = thirdParty instanceof Map ? thirdParty : (thirdParty ? new Map(Object.entries(thirdParty)) : new Map());
+      const chars = [...rawMessage];
+
+      // 1. Construire les segments texte et image depuis les emotes Twitch (positions IRC)
+      const twitchSorted = (twitchEmotes || []).slice().sort((a, b) => a.start - b.start);
+      const segments = []; // { type:'text'|'img', value, url?, name? }
       let cursor = 0;
-      for (const em of emotes) {
-        if (em.start > cursor) {
-          html += escapeHtml(chars.slice(cursor, em.start).join(''));
-        }
-        html += `<img class="emote" src="https://static-cdn.jtvnw.net/emoticons/v2/${em.id}/default/dark/2.0" alt="${escapeHtml(em.name)}" title="${escapeHtml(em.name)}" loading="lazy">`;
+      for (const em of twitchSorted) {
+        if (em.start > cursor) segments.push({ type: 'text', value: chars.slice(cursor, em.start).join('') });
+        segments.push({ type: 'img', url: `https://static-cdn.jtvnw.net/emoticons/v2/${em.id}/default/dark/2.0`, name: em.name });
         cursor = em.end + 1;
       }
-      if (cursor < chars.length) html += escapeHtml(chars.slice(cursor).join(''));
+      if (cursor < chars.length) segments.push({ type: 'text', value: chars.slice(cursor).join('') });
+      if (!segments.length) segments.push({ type: 'text', value: rawMessage });
+
+      // 2. Sur les segments texte, remplacer les tokens tiers (espace comme délimiteur)
+      let html = '';
+      for (const seg of segments) {
+        if (seg.type === 'img') {
+          html += `<img class="emote" src="${escapeHtml(seg.url)}" alt="${escapeHtml(seg.name)}" title="${escapeHtml(seg.name)}" loading="lazy">`;
+        } else {
+          // Traiter token par token en conservant les espaces
+          const tokens = seg.value.split(/(\s+)/);
+          for (const token of tokens) {
+            const tp = map.get(token);
+            if (tp) {
+              html += `<img class="emote" src="${escapeHtml(tp.url)}" alt="${escapeHtml(token)}" title="${escapeHtml(token)} (${escapeHtml(tp.source)})" loading="lazy">`;
+            } else {
+              html += escapeHtml(token);
+            }
+          }
+        }
+      }
       return html;
     }
 
@@ -323,7 +477,7 @@
         const sel      = msg.id === state.selectedId;
         const grayed   = selIdx !== -1 && i > selIdx;
         const authorHl = state.historyUser && msg.user.toLowerCase() === state.historyUser.toLowerCase();
-        const textHtml = renderMessageHtml(msg.message, msg.emotes);
+        const textHtml = renderMessageHtml(msg.message, msg.emotes, emoteMap);
         return `<article class="msg${sel?' selected':''}${grayed?' after-selected':''}" data-id="${escapeHtml(msg.id)}">
           <div class="meta">
             <span class="author${authorHl?' author-hl':''}" data-user="${escapeHtml(msg.user)}" style="color:${escapeHtml(msg.color)}" title="Cliquer pour voir l'historique">${escapeHtml(msg.user)}</span>
@@ -382,10 +536,15 @@
       if (state.socket) { try { state.socket.close(); } catch(_){} state.socket = null; }
       if (showStatus) { setStatus('déconnecté.'); sidebar.classList.remove('collapsed'); }
     }
+
     function connect(channel) {
       disconnect(false); state.manualClose = false;
       state.channel = channel.replace(/^#/,'').trim().toLowerCase();
       if (!state.channel) { setStatus('chaîne invalide.', 'error'); return; }
+
+      // Chargement emotes tierces en parallèle avec la connexion IRC
+      loadThirdPartyEmotes(state.channel);
+
       const ws = new WebSocket('wss://irc-ws.chat.twitch.tv:443');
       state.socket = ws;
       setStatus('connexion à #' + state.channel + '...');

@@ -69,13 +69,11 @@
       text-wrap: pretty;
       text-shadow: 0 2px 10px rgba(0,0,0,.22);
     }
-    /* Emotes dans le message highlight */
-    .message img.emote {
+    .message img.emote, .history-text img.emote {
       height: 1.3em;
       width: auto;
       vertical-align: middle;
       margin: 0 2px;
-      /* évite que l’image impose une hauteur de ligne bizarroide */
       display: inline-block;
     }
     .msg-meta { margin-top: 12px; color: var(--muted); font-size: 13px; }
@@ -93,14 +91,6 @@
     .history-text {
       font-size: clamp(16px, 1.6vw, 24px); color: var(--text); font-weight: 600;
       word-break: break-word; white-space: pre-wrap; line-height: 1.4;
-    }
-    /* Emotes dans le mode historique */
-    .history-text img.emote {
-      height: 1.3em;
-      width: auto;
-      vertical-align: middle;
-      margin: 0 2px;
-      display: inline-block;
     }
     .history-time { font-size: 11px; color: var(--muted); }
     .history-empty { padding: 20px; font-size: 14px; color: var(--muted); text-align: center; }
@@ -152,23 +142,45 @@
     }
 
     /**
-     * Identique à la fonction du panneau de contrôle.
-     * Re-déclarée ici car l’overlay est une page indépendante.
+     * Rend le HTML d’un message : emotes Twitch (positions) puis emotes tierces (tokens).
+     * @param {string}       rawMessage
+     * @param {Array}        twitchEmotes  [{id,start,end,name}]
+     * @param {Object|null}  thirdParty    { word: {url,source} } sérialisé depuis le panneau
      */
-    function renderMessageHtml(rawMessage, emotes) {
-      if (!emotes || !emotes.length) return esc(rawMessage);
+    function renderMessageHtml(rawMessage, twitchEmotes, thirdParty) {
+      const map = thirdParty ? new Map(Object.entries(thirdParty)) : new Map();
       const chars = [...rawMessage];
-      let html = '';
+      const sorted = (twitchEmotes || []).slice().sort((a, b) => a.start - b.start);
+
+      const segments = [];
       let cursor = 0;
-      const sorted = [...emotes].sort((a, b) => a.start - b.start);
       for (const em of sorted) {
-        if (em.start > cursor) html += esc(chars.slice(cursor, em.start).join(''));
-        html += `<img class="emote" src="https://static-cdn.jtvnw.net/emoticons/v2/${esc(em.id)}/default/dark/2.0" alt="${esc(em.name)}" title="${esc(em.name)}" loading="lazy">`;
+        if (em.start > cursor) segments.push({ type: 'text', value: chars.slice(cursor, em.start).join('') });
+        segments.push({ type: 'img', url: `https://static-cdn.jtvnw.net/emoticons/v2/${esc(em.id)}/default/dark/2.0`, name: em.name });
         cursor = em.end + 1;
       }
-      if (cursor < chars.length) html += esc(chars.slice(cursor).join(''));
+      if (cursor < chars.length) segments.push({ type: 'text', value: chars.slice(cursor).join('') });
+      if (!segments.length) segments.push({ type: 'text', value: rawMessage });
+
+      let html = '';
+      for (const seg of segments) {
+        if (seg.type === 'img') {
+          html += `<img class="emote" src="${esc(seg.url)}" alt="${esc(seg.name)}" title="${esc(seg.name)}" loading="lazy">`;
+        } else {
+          for (const token of seg.value.split(/(\s+)/)) {
+            const tp = map.get(token);
+            if (tp) {
+              html += `<img class="emote" src="${esc(tp.url)}" alt="${esc(token)}" title="${esc(token)} (${esc(tp.source)})" loading="lazy">`;
+            } else {
+              html += esc(token);
+            }
+          }
+        }
+      }
       return html;
     }
+
+    function applyCustomCss(css) { customStyle.textContent = css || ''; }
 
     function showHighlight(p) {
       card.classList.remove('history-mode');
@@ -177,7 +189,7 @@
       titleEl.textContent      = p.title || 'Message mis en avant';
       authorEl.style.color     = p.message.color || '#c8d4ff';
       authorNameEl.textContent = p.message.user  || 'Viewer';
-      messageEl.innerHTML      = renderMessageHtml(p.message.message || '', p.message.emotes || []);
+      messageEl.innerHTML      = renderMessageHtml(p.message.message || '', p.message.emotes || [], p.thirdPartyEmotes || null);
       msgMetaEl.textContent    = (p.channel ? '#'+p.channel+' · ' : '') + formatTime(p.message.timestamp || Date.now());
       overlay.classList.add('visible');
     }
@@ -193,15 +205,13 @@
       } else {
         historyList.innerHTML = msgs.map(m =>
           `<div class="history-item">
-            <div class="history-text">${renderMessageHtml(m.message || '', m.emotes || [])}</div>
+            <div class="history-text">${renderMessageHtml(m.message || '', m.emotes || [], p.thirdPartyEmotes || null)}</div>
             <div class="history-time">${formatTime(m.timestamp)}</div>
           </div>`
         ).join('');
       }
       overlay.classList.add('visible');
     }
-
-    function applyCustomCss(css) { customStyle.textContent = css || ''; }
 
     function handlePayload(p) {
       if (!p || !p.type) return;
