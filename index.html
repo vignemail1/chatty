@@ -39,7 +39,10 @@
     label { display: grid; gap: 7px; font-size: 13px; color: var(--muted); }
     .lead { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
     input, textarea, select { width: 100%; background: var(--panel-2); color: var(--text); border: 1px solid var(--border); border-radius: 12px; padding: 11px 14px; font: inherit; }
-    input:focus, textarea:focus { outline: 2px solid rgba(124,156,255,.4); border-color: var(--accent); }
+    input[type=number] { -moz-appearance: textfield; }
+    input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    select option { background: #1a2340; }
+    input:focus, textarea:focus, select:focus { outline: 2px solid rgba(124,156,255,.4); border-color: var(--accent); }
     textarea { resize: vertical; min-height: 90px; font-family: 'Fira Mono','Consolas',monospace; font-size: 12px; line-height: 1.55; }
     button { appearance: none; border: 0; border-radius: 12px; padding: 11px 16px; font: inherit; font-weight: 700; color: white; background: linear-gradient(135deg, var(--accent), #5f7dff); cursor: pointer; transition: transform .15s ease, filter .15s ease; }
     button:hover { transform: translateY(-1px); filter: brightness(1.05); }
@@ -60,6 +63,18 @@
     .emote-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
     .emote-dot.ok { background: var(--accent-2); }
     .emote-dot.err { background: var(--danger); }
+    /* position grid picker */
+    .pos-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .pos-btn {
+      appearance: none; border: 1px solid var(--border); border-radius: 10px;
+      background: var(--panel-2); color: var(--muted); padding: 8px 4px;
+      font-size: 11px; font-weight: 600; cursor: pointer;
+      transition: background .15s, border-color .15s, color .15s, transform .1s;
+      text-align: center; line-height: 1.3;
+    }
+    .pos-btn:hover { background: var(--panel-3); color: var(--text); }
+    .pos-btn.active { background: rgba(124,156,255,.18); border-color: rgba(124,156,255,.7); color: var(--accent); }
+    .pos-btn span { display: block; font-size: 16px; margin-bottom: 2px; }
 
     .main { display: grid; grid-template-rows: auto 1fr; overflow: hidden; }
     .toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
@@ -105,7 +120,7 @@
       <div class="sidebar-body">
         <div class="stack">
           <div class="pill"><span class="dot-anim"></span> Sans bot · WebSocket Twitch IRC</div>
-          <p class="lead">Clic sur un message → overlay. Re-clic → retire. Clic sur un pseudo → 3 derniers messages dans l'overlay.</p>
+          <p class="lead" id="leadText">Clic sur un message → overlay. Re-clic → retire. Clic sur un pseudo → derniers messages dans l'overlay.</p>
         </div>
 
         <div class="stack">
@@ -131,10 +146,25 @@
         </div>
 
         <div class="stack">
-          <div class="section-title">Textes de l'overlay</div>
+          <div class="section-title">Paramètres overlay</div>
+
           <label>Titre overlay
             <input id="overlayTitle" type="text" value="Message mis en avant">
           </label>
+
+          <label>Historique pseudo (nb de messages : 2–10)
+            <input id="historyCount" type="number" min="2" max="10" value="3">
+          </label>
+
+          <div style="font-size:13px;color:var(--muted);margin-bottom:2px">Position dans l'overlay</div>
+          <div class="pos-grid" id="posGrid">
+            <button class="pos-btn" data-pos="top-left"    ><span>↖</span>Haut G.</button>
+            <button class="pos-btn" data-pos="top-right"   ><span>↗</span>Haut D.</button>
+            <button class="pos-btn" data-pos="middle-left" ><span>←</span>Milieu G.</button>
+            <button class="pos-btn" data-pos="middle-right"><span>→</span>Milieu D.</button>
+            <button class="pos-btn active" data-pos="bottom-left" ><span>↙</span>Bas G.</button>
+            <button class="pos-btn" data-pos="bottom-right"><span>↘</span>Bas D.</button>
+          </div>
         </div>
 
         <div class="stack">
@@ -181,6 +211,7 @@
     const simulateBtn   = document.getElementById('simulateBtn');
     const simulateBtnC  = document.getElementById('simulateBtnCompact');
     const titleInput    = document.getElementById('overlayTitle');
+    const historyCountInput = document.getElementById('historyCount');
     const customCssArea = document.getElementById('customCss');
     const applyCssBtn   = document.getElementById('applyCssBtn');
     const chatList      = document.getElementById('chatList');
@@ -192,6 +223,8 @@
     const sidebar       = document.getElementById('sidebar');
     const toggleBtn     = document.getElementById('toggleBtn');
     const sidebarSub    = document.getElementById('sidebarSubtitle');
+    const posGrid       = document.getElementById('posGrid');
+    const leadText      = document.getElementById('leadText');
 
     const DEFAULT_CSS = [
       '/* Opacité de la boîte de message (90 %) */',
@@ -213,6 +246,19 @@
       '}'
     ].join('\n');
 
+    // Position courante de l'overlay
+    let currentPosition = 'bottom-left';
+
+    // Mapping position -> classes CSS align-items / justify-content pour l'overlay
+    const POS_ALIGN = {
+      'top-left':     { alignItems: 'start',  justifyContent: 'start'  },
+      'top-right':    { alignItems: 'start',  justifyContent: 'end'    },
+      'middle-left':  { alignItems: 'center', justifyContent: 'start'  },
+      'middle-right': { alignItems: 'center', justifyContent: 'end'    },
+      'bottom-left':  { alignItems: 'end',    justifyContent: 'start'  },
+      'bottom-right': { alignItems: 'end',    justifyContent: 'end'    },
+    };
+
     const state = {
       socket: null, channel: '', messages: [], selectedId: null,
       historyUser: null,
@@ -221,14 +267,14 @@
 
     // ---------------------------------------------------------------------------
     // Emote map : { word -> { url, source } }
-    // Priorité : 7TV > BTTV > FFZ (les suivants n’écrasent pas si déjà présent)
+    // Priorité : 7TV > BTTV > FFZ
     // ---------------------------------------------------------------------------
-    const emoteMap = new Map(); // word → { url, source }
+    const emoteMap = new Map();
 
-    function setEmoteDot(id, lblId, state, text) {
+    function setEmoteDot(id, lblId, st, text) {
       const dot = document.getElementById(id);
       const lbl = document.getElementById(lblId);
-      dot.className = 'emote-dot' + (state === 'ok' ? ' ok' : state === 'err' ? ' err' : '');
+      dot.className = 'emote-dot' + (st === 'ok' ? ' ok' : st === 'err' ? ' err' : '');
       lbl.textContent = text;
     }
 
@@ -238,18 +284,9 @@
       return r.json();
     }
 
-    /**
-     * Charge les emotes 7TV pour un channel (login = nom minuscule).
-     * API v3 : /users/twitch/{channel_id} puis /emote-sets/{set_id}
-     * On utilise l’endpoint plus simple /users/twitch/{login} disponible en GQL
-     * mais l’API REST v3 fournie directement : https://7tv.io/v3/users/twitch/{id}
-     * Pour obtenir l’ID Twitch on passe par l’API Helix — non dispo sans token.
-     * Astuce : 7TV expose /v3/users/twitch/{login} si on passe le login en minuscules.
-     */
     async function load7TV(login) {
       setEmoteDot('dot7tv','lbl7tv','','chargement...');
       try {
-        // endpoint channel emotes
         const data = await safeFetch(`https://7tv.io/v3/users/twitch/${encodeURIComponent(login)}`);
         const emotes = data.emote_set?.emotes ?? [];
         let count = 0;
@@ -260,7 +297,6 @@
           const url = 'https:' + e.data.host.url + '/' + file.name;
           if (!emoteMap.has(name)) { emoteMap.set(name, { url, source: '7tv' }); count++; }
         }
-        // emotes globales 7TV
         const global = await safeFetch('https://7tv.io/v3/emote-sets/global');
         for (const e of global.emotes ?? []) {
           const name = e.name;
@@ -279,18 +315,16 @@
       setEmoteDot('dotBttv','lblBttv','','chargement...');
       try {
         let count = 0;
-        // Globales
         const global = await safeFetch('https://api.betterttv.net/3/cached/emotes/global');
         for (const e of global) {
           if (!emoteMap.has(e.code)) { emoteMap.set(e.code, { url: `https://cdn.betterttv.net/emote/${e.id}/2x`, source: 'bttv' }); count++; }
         }
-        // Channel (nécessite d’abord l’ID Twitch du channel via l’API BTTV)
         try {
           const ch = await safeFetch(`https://api.betterttv.net/3/cached/users/twitch/${encodeURIComponent(login)}`);
           for (const e of [...(ch.channelEmotes ?? []), ...(ch.sharedEmotes ?? [])]) {
             if (!emoteMap.has(e.code)) { emoteMap.set(e.code, { url: `https://cdn.betterttv.net/emote/${e.id}/2x`, source: 'bttv' }); count++; }
           }
-        } catch(_) { /* BTTV channel peut ne pas exister */ }
+        } catch(_) {}
         setEmoteDot('dotBttv','lblBttv','ok', count + ' emotes');
       } catch(err) {
         setEmoteDot('dotBttv','lblBttv','err','erreur (' + err.message + ')');
@@ -301,7 +335,6 @@
       setEmoteDot('dotFfz','lblFfz','','chargement...');
       try {
         let count = 0;
-        // Globales
         const global = await safeFetch('https://api.frankerfacez.com/v1/set/global');
         for (const set of Object.values(global.sets ?? {})) {
           for (const e of set.emoticons ?? []) {
@@ -309,7 +342,6 @@
             if (url && !emoteMap.has(e.name)) { emoteMap.set(e.name, { url: url.startsWith('//') ? 'https:' + url : url, source: 'ffz' }); count++; }
           }
         }
-        // Channel
         try {
           const ch = await safeFetch(`https://api.frankerfacez.com/v1/room/${encodeURIComponent(login)}`);
           for (const set of Object.values(ch.sets ?? {})) {
@@ -318,7 +350,7 @@
               if (url && !emoteMap.has(e.name)) { emoteMap.set(e.name, { url: url.startsWith('//') ? 'https:' + url : url, source: 'ffz' }); count++; }
             }
           }
-        } catch(_) { /* FFZ room peut ne pas exister */ }
+        } catch(_) {}
         setEmoteDot('dotFfz','lblFfz','ok', count + ' emotes');
       } catch(err) {
         setEmoteDot('dotFfz','lblFfz','err','erreur (' + err.message + ')');
@@ -328,6 +360,47 @@
     async function loadThirdPartyEmotes(login) {
       emoteMap.clear();
       await Promise.allSettled([load7TV(login), loadBTTV(login), loadFFZ(login)]);
+    }
+
+    // ---------------------------------------------------------------------------
+    // Helpers
+    // ---------------------------------------------------------------------------
+
+    function getHistoryCount() {
+      const v = parseInt(historyCountInput.value, 10);
+      return isNaN(v) ? 3 : Math.min(10, Math.max(2, v));
+    }
+
+    function updateLeadText() {
+      const n = getHistoryCount();
+      leadText.textContent = `Clic sur un message → overlay. Re-clic → retire. Clic sur un pseudo → ${n} derniers messages dans l'overlay.`;
+    }
+    historyCountInput.addEventListener('input', () => {
+      updateLeadText();
+      // Si un historique est déjà affiché, le mettre à jour en direct
+      if (state.historyUser) showUserHistory(state.historyUser, true);
+    });
+
+    // ---------------------------------------------------------------------------
+    // Position
+    // ---------------------------------------------------------------------------
+    posGrid.addEventListener('click', e => {
+      const btn = e.target.closest('.pos-btn');
+      if (!btn) return;
+      posGrid.querySelectorAll('.pos-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentPosition = btn.dataset.pos;
+      publishPosition();
+    });
+
+    function publishPosition() {
+      const align = POS_ALIGN[currentPosition] || POS_ALIGN['bottom-left'];
+      const payload = { type: 'position', position: currentPosition, ...align, emittedAt: Date.now() };
+      if (state.bc) state.bc.postMessage(payload);
+      try {
+        const s = localStorage.getItem('twitch-highlight-sync');
+        localStorage.setItem('twitch-highlight-sync', JSON.stringify({ ...(s ? JSON.parse(s) : {}), ...payload }));
+      } catch(_) {}
     }
 
     // ---------------------------------------------------------------------------
@@ -352,12 +425,20 @@
 
     function initBridge() { if ('BroadcastChannel' in window) state.bc = new BroadcastChannel('twitch-highlight-overlay'); }
 
-    function serializeEmoteMap() {
-      return Object.fromEntries(emoteMap);
-    }
+    function serializeEmoteMap() { return Object.fromEntries(emoteMap); }
 
     function publish(payload) {
-      const full = { ...payload, title: titleInput.value.trim() || 'Message mis en avant', customCss: customCssArea.value, thirdPartyEmotes: serializeEmoteMap(), emittedAt: Date.now() };
+      const align = POS_ALIGN[currentPosition] || POS_ALIGN['bottom-left'];
+      const full = {
+        ...payload,
+        title: titleInput.value.trim() || 'Message mis en avant',
+        customCss: customCssArea.value,
+        thirdPartyEmotes: serializeEmoteMap(),
+        position: currentPosition,
+        alignItems: align.alignItems,
+        justifyContent: align.justifyContent,
+        emittedAt: Date.now()
+      };
       if (state.bc) state.bc.postMessage(full);
       try { localStorage.setItem('twitch-highlight-sync', JSON.stringify(full)); } catch(_) {}
     }
@@ -373,9 +454,6 @@
       return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
     }
 
-    /**
-     * Parse le tag IRC `emotes` → tableau trié { id, start, end, name }
-     */
     function parseEmotes(emoteTag, rawMessage) {
       if (!emoteTag) return [];
       const result = [];
@@ -392,22 +470,11 @@
       return result.sort((a, b) => a.start - b.start);
     }
 
-    /**
-     * Rend le HTML d’un message en combinant :
-     *  1. Les emotes Twitch (positions IRC exactes)
-     *  2. Les emotes tierces (remplacement token-by-token sur les segments texte restants)
-     *
-     * @param {string} rawMessage  Texte brut du message
-     * @param {Array}  twitchEmotes Tableau { id, start, end, name } (IRC)
-     * @param {Map|Object} thirdParty  emoteMap (word → { url }) pour 7TV/BTTV/FFZ
-     */
     function renderMessageHtml(rawMessage, twitchEmotes, thirdParty) {
       const map = thirdParty instanceof Map ? thirdParty : (thirdParty ? new Map(Object.entries(thirdParty)) : new Map());
       const chars = [...rawMessage];
-
-      // 1. Construire les segments texte et image depuis les emotes Twitch (positions IRC)
       const twitchSorted = (twitchEmotes || []).slice().sort((a, b) => a.start - b.start);
-      const segments = []; // { type:'text'|'img', value, url?, name? }
+      const segments = [];
       let cursor = 0;
       for (const em of twitchSorted) {
         if (em.start > cursor) segments.push({ type: 'text', value: chars.slice(cursor, em.start).join('') });
@@ -416,14 +483,11 @@
       }
       if (cursor < chars.length) segments.push({ type: 'text', value: chars.slice(cursor).join('') });
       if (!segments.length) segments.push({ type: 'text', value: rawMessage });
-
-      // 2. Sur les segments texte, remplacer les tokens tiers (espace comme délimiteur)
       let html = '';
       for (const seg of segments) {
         if (seg.type === 'img') {
           html += `<img class="emote" src="${escapeHtml(seg.url)}" alt="${escapeHtml(seg.name)}" title="${escapeHtml(seg.name)}" loading="lazy">`;
         } else {
-          // Traiter token par token en conservant les espaces
           const tokens = seg.value.split(/(\s+)/);
           for (const token of tokens) {
             const tp = map.get(token);
@@ -462,7 +526,8 @@
     function formatTime(ts) { return new Date(ts).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
 
     function getUserHistory(user) {
-      return state.messages.filter(m => m.user.toLowerCase() === user.toLowerCase()).slice(-3).reverse();
+      const n = getHistoryCount();
+      return state.messages.filter(m => m.user.toLowerCase() === user.toLowerCase()).slice(-n).reverse();
     }
 
     function renderMessages() {
@@ -509,13 +574,15 @@
       }
     }
 
-    function showUserHistory(user) {
-      const already = state.historyUser && state.historyUser.toLowerCase() === user.toLowerCase();
-      if (already) {
-        state.historyUser = null; state.selectedId = null;
-        renderMessages();
-        publish({ type: 'clear', channel: state.channel });
-        return;
+    function showUserHistory(user, silent) {
+      if (!silent) {
+        const already = state.historyUser && state.historyUser.toLowerCase() === user.toLowerCase();
+        if (already) {
+          state.historyUser = null; state.selectedId = null;
+          renderMessages();
+          publish({ type: 'clear', channel: state.channel });
+          return;
+        }
       }
       state.historyUser = user; state.selectedId = null;
       const msgs = getUserHistory(user);
@@ -541,10 +608,7 @@
       disconnect(false); state.manualClose = false;
       state.channel = channel.replace(/^#/,'').trim().toLowerCase();
       if (!state.channel) { setStatus('chaîne invalide.', 'error'); return; }
-
-      // Chargement emotes tierces en parallèle avec la connexion IRC
       loadThirdPartyEmotes(state.channel);
-
       const ws = new WebSocket('wss://irc-ws.chat.twitch.tv:443');
       state.socket = ws;
       setStatus('connexion à #' + state.channel + '...');
@@ -582,7 +646,7 @@
 
     chatList.addEventListener('click', e => {
       const authorEl = e.target.closest('.author');
-      if (authorEl) { e.stopPropagation(); showUserHistory(authorEl.dataset.user); return; }
+      if (authorEl) { e.stopPropagation(); showUserHistory(authorEl.dataset.user, false); return; }
       const msgEl = e.target.closest('.msg');
       if (msgEl) toggleMessage(msgEl.dataset.id);
     });
@@ -596,8 +660,10 @@
       }
     });
 
-    makeLinks(); initBridge();
+    makeLinks(); initBridge(); updateLeadText();
     customCssArea.value = DEFAULT_CSS;
+    // Publier la position par défaut au démarrage
+    publishPosition();
     try {
       const ch = new URLSearchParams(window.location.search).get('channel');
       if (ch) { channelInput.value = ch; connect(ch); }

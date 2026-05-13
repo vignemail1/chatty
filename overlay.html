@@ -23,7 +23,13 @@
       background: transparent; overflow: hidden;
       font-family: Inter, system-ui, sans-serif;
     }
-    body { display: grid; place-items: end start; padding: 32px; }
+    body {
+      display: flex;
+      align-items: var(--overlay-align, end);
+      justify-content: var(--overlay-justify, start);
+      padding: 32px;
+      transition: align-items 0s, justify-content 0s;
+    }
 
     .overlay {
       width: fit-content;
@@ -34,6 +40,10 @@
       pointer-events: none;
     }
     .overlay.visible { opacity: 1; transform: translateY(0) scale(1); }
+    /* Animation de sortie selon la position */
+    body[data-pos-v="top"]    .overlay:not(.visible) { transform: translateY(-18px) scale(.985); }
+    body[data-pos-v="middle"] .overlay:not(.visible) { transform: scale(.985); }
+    body[data-pos-v="bottom"] .overlay:not(.visible) { transform: translateY(18px) scale(.985); }
 
     .card {
       background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.01)), var(--card);
@@ -105,7 +115,7 @@
   </style>
   <style id="customStyle"></style>
 </head>
-<body>
+<body data-pos-v="bottom">
   <div class="overlay" id="overlay">
     <div class="card" id="card">
       <div class="topline">
@@ -141,17 +151,10 @@
       return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
-    /**
-     * Rend le HTML d’un message : emotes Twitch (positions) puis emotes tierces (tokens).
-     * @param {string}       rawMessage
-     * @param {Array}        twitchEmotes  [{id,start,end,name}]
-     * @param {Object|null}  thirdParty    { word: {url,source} } sérialisé depuis le panneau
-     */
     function renderMessageHtml(rawMessage, twitchEmotes, thirdParty) {
       const map = thirdParty ? new Map(Object.entries(thirdParty)) : new Map();
       const chars = [...rawMessage];
       const sorted = (twitchEmotes || []).slice().sort((a, b) => a.start - b.start);
-
       const segments = [];
       let cursor = 0;
       for (const em of sorted) {
@@ -161,7 +164,6 @@
       }
       if (cursor < chars.length) segments.push({ type: 'text', value: chars.slice(cursor).join('') });
       if (!segments.length) segments.push({ type: 'text', value: rawMessage });
-
       let html = '';
       for (const seg of segments) {
         if (seg.type === 'img') {
@@ -182,6 +184,22 @@
 
     function applyCustomCss(css) { customStyle.textContent = css || ''; }
 
+    /**
+     * Applique la position reçue du panneau.
+     * Modifie les variables CSS --overlay-align / --overlay-justify sur <body>
+     * et l'attribut data-pos-v pour l'animation de sortie.
+     */
+    function applyPosition(p) {
+      if (!p || !p.position) return;
+      const ai = p.alignItems   || 'end';
+      const jc = p.justifyContent || 'start';
+      document.body.style.setProperty('--overlay-align',   ai);
+      document.body.style.setProperty('--overlay-justify', jc);
+      // data-pos-v pour animer la sortie dans la bonne direction
+      const posV = p.position.startsWith('top') ? 'top' : p.position.startsWith('bottom') ? 'bottom' : 'middle';
+      document.body.setAttribute('data-pos-v', posV);
+    }
+
     function showHighlight(p) {
       card.classList.remove('history-mode');
       hlContent.style.display = '';
@@ -198,8 +216,9 @@
       card.classList.add('history-mode');
       hlContent.style.display = 'none';
       historyList.style.display = '';
-      titleEl.textContent = '💬 ' + (p.user || 'Viewer') + ' — 3 derniers messages';
       const msgs = p.messages || [];
+      const n = msgs.length;
+      titleEl.textContent = '💬 ' + (p.user || 'Viewer') + ` — ${n} dernier${n > 1 ? 's' : ''} message${n > 1 ? 's' : ''}`;
       if (!msgs.length) {
         historyList.innerHTML = '<div class="history-empty">Aucun message trouvé.</div>';
       } else {
@@ -214,11 +233,18 @@
     }
 
     function handlePayload(p) {
-      if (!p || !p.type) return;
+      if (!p || !p.type) {
+        // Payload de position pur (type: 'position')
+        if (p && p.position) applyPosition(p);
+        return;
+      }
       if (p.type === 'highlight') showHighlight(p);
       if (p.type === 'history')   showHistory(p);
       if (p.type === 'clear')     overlay.classList.remove('visible');
-      if (p.customCss !== undefined) applyCustomCss(p.customCss);
+      if (p.type === 'position')  applyPosition(p);
+      if (p.type === 'css' || p.customCss !== undefined) applyCustomCss(p.customCss || '');
+      // Chaque payload complet transporte aussi la position
+      if (p.position) applyPosition(p);
     }
 
     try {
@@ -226,6 +252,7 @@
       if (saved) {
         const data = JSON.parse(saved);
         if (data.customCss !== undefined) applyCustomCss(data.customCss);
+        if (data.position) applyPosition(data);
         handlePayload(data);
       }
     } catch(_) {}
