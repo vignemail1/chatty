@@ -110,7 +110,7 @@
       <div class="sidebar-body">
         <div class="stack">
           <div class="pill"><span class="dot-anim"></span> Sans bot · WebSocket Twitch IRC</div>
-          <p class="lead">Clic sur un message → overlay. Re-clic → retire. Clic sur un pseudo → 3 derniers messages dans l’overlay.</p>
+          <p class="lead">Clic sur un message → overlay. Re-clic → retire. Clic sur un pseudo → 3 derniers messages dans l'overlay.</p>
         </div>
 
         <div class="stack">
@@ -128,7 +128,7 @@
 
         <!-- Textes overlay -->
         <div class="stack">
-          <div class="section-title">Textes de l’overlay</div>
+          <div class="section-title">Textes de l'overlay</div>
           <label>Titre overlay
             <input id="overlayTitle" type="text" value="Message mis en avant">
           </label>
@@ -138,7 +138,7 @@
         <div class="stack">
           <div class="section-title">CSS personnalisé — boîte overlay</div>
           <label style="gap:6px">
-            <span>Styles appliqués à <code style="font-size:11px;opacity:.7">.card</code> dans l’overlay</span>
+            <span>Styles appliqués à <code style="font-size:11px;opacity:.7">.card</code> dans l'overlay</span>
             <textarea id="customCss" spellcheck="false" placeholder="/* votre CSS ici */"></textarea>
           </label>
           <div class="row">
@@ -197,12 +197,24 @@
       '.card {',
       '  background: rgba(8, 12, 24, 0.10) !important;',
       '  backdrop-filter: blur(18px);',
+      '}',
+      '',
+      '/* Taille du texte du message mis en avant */',
+      '/* Valeur par défaut : clamp(28px, 2.8vw, 44px)  */',
+      '.message {',
+      '  font-size: 36px;',
+      '}',
+      '',
+      '/* Taille du texte dans le mode historique viewer */',
+      '/* Valeur par défaut : clamp(16px, 1.6vw, 24px)  */',
+      '.history-text {',
+      '  font-size: 20px;',
       '}'
     ].join('\n');
 
     const state = {
       socket: null, channel: '', messages: [], selectedId: null,
-      historyUser: null, /* pseudo dont on affiche l’historique */
+      historyUser: null, /* pseudo dont on affiche l'historique */
       maxMessages: 250, bc: null, reconnectTimer: null, manualClose: false
     };
 
@@ -255,7 +267,7 @@
     }
     function formatTime(ts) { return new Date(ts).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
 
-    /* Historique d’un user : 3 derniers messages (chron. inverse) */
+    /* Historique d'un user : 3 derniers messages (chron. inverse) */
     function getUserHistory(user) {
       return state.messages.filter(m => m.user.toLowerCase() === user.toLowerCase()).slice(-3).reverse();
     }
@@ -275,11 +287,11 @@
         const authorHl = state.historyUser && msg.user.toLowerCase() === state.historyUser.toLowerCase();
         return `<article class="msg${sel?' selected':''}${grayed?' after-selected':''}" data-id="${msg.id}">
           <div class="meta">
-            <span class="author${authorHl?' author-hl':''}" data-user="${escapeHtml(msg.user)}" style="color:${escapeHtml(msg.color)}" title="Cliquer pour voir l’historique">${escapeHtml(msg.user)}</span>
+            <span class="author${authorHl?' author-hl':''}" data-user="${escapeHtml(msg.user)}" style="color:${escapeHtml(msg.color)}" title="Cliquer pour voir l'historique">${escapeHtml(msg.user)}</span>
             <span class="time">${formatTime(msg.timestamp)}</span>
           </div>
           <div class="text">${escapeHtml(msg.message)}</div>
-          ${sel ? '<div class="msg-hint">✕ Re-cliquer pour retirer l’overlay</div>' : ''}
+          ${sel ? '<div class="msg-hint">✕ Re-cliquer pour retirer l\'overlay</div>' : ''}
         </article>`;
       }).join('');
     }
