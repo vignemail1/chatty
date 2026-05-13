@@ -278,38 +278,26 @@
     }
 
     /**
-     * Résout le login Twitch en ID numérique via l'API BTTV
-     * (qui stocke le providerId Twitch sans nécessiter de token).
-     * Retourne null si non trouvé.
-     */
-    async function resolveTwitchId(login) {
-      try {
-        const data = await safeFetch(`https://api.betterttv.net/3/cached/users/twitch/${encodeURIComponent(login)}`);
-        // providerId = ID numérique Twitch (string)
-        return data.id || null;  // champ "id" = BTTV user id, on veut "channelId" ou similaire
-      } catch(_) { return null; }
-    }
-
-    /**
      * Charge les emotes 7TV.
-     * L'API v3 requiert l’ID Twitch numérique : /v3/users/twitch/{twitch_id}
-     * On obtient cet ID via l’endpoint BTTV qui renvoie { channelId, ... }
+     * L'API v3 requiert l'ID Twitch numérique : /v3/users/twitch/{twitch_id}
+     * On obtient cet ID via l'endpoint BTTV qui renvoie { channelId, ... }
      * sans avoir besoin de token OAuth Twitch.
+     *
+     * Fix : utilisait data.id (ID BTTV) au lieu de data.channelId (ID Twitch numérique)
      */
     async function load7TV(login) {
       setEmoteDot('dot7tv', 'lbl7tv', '', 'chargement...');
       try {
-        // Obtenir l'ID Twitch numérique via BTTV
         let twitchId = null;
         try {
           const bttv = await safeFetch(`https://api.betterttv.net/3/cached/users/twitch/${encodeURIComponent(login)}`);
-          // La réponse BTTV a "channelId" qui est l'ID numérique du channel Twitch
-          twitchId = bttv.channelId || null;
+          // channelId = ID numérique Twitch du channel (pas data.id qui est l'ID BTTV)
+          twitchId = bttv.channelId ? String(bttv.channelId) : null;
         } catch(_) {}
 
         let count = 0;
 
-        // Emotes du channel (si on a l'ID)
+        // Emotes du channel (si on a l'ID Twitch numérique)
         if (twitchId) {
           try {
             const data = await safeFetch(`https://7tv.io/v3/users/twitch/${encodeURIComponent(twitchId)}`);
@@ -389,8 +377,6 @@
 
     async function loadThirdPartyEmotes(login) {
       emoteMap.clear();
-      // BTTV en premier car load7TV en a besoin pour résoudre l'ID
-      // On lance quand même en parallèle — load7TV fait son propre appel BTTV en interne
       await Promise.allSettled([load7TV(login), loadBTTV(login), loadFFZ(login)]);
     }
 
@@ -515,11 +501,17 @@
         if (seg.type === 'img') {
           html += `<img class="emote" src="${escapeHtml(seg.url)}" alt="${escapeHtml(seg.name)}" title="${escapeHtml(seg.name)}" loading="lazy">`;
         } else {
-          for (const token of seg.value.split(/(\s+)/)) {
+          // Split whitespace-aware : ne pas matcher les tokens vides ou purement whitespace
+          const tokens = seg.value.split(/(\s+)/);
+          for (const token of tokens) {
+            if (!token) continue;
+            if (/^\s+$/.test(token)) { html += escapeHtml(token); continue; }
             const tp = map.get(token);
-            html += tp
-              ? `<img class="emote" src="${escapeHtml(tp.url)}" alt="${escapeHtml(token)}" title="${escapeHtml(token)} (${escapeHtml(tp.source)})" loading="lazy">`
-              : escapeHtml(token);
+            if (tp && tp.url) {
+              html += `<img class="emote" src="${escapeHtml(tp.url)}" alt="${escapeHtml(token)}" title="${escapeHtml(token)} (${escapeHtml(tp.source || '?')})" loading="lazy">`;
+            } else {
+              html += escapeHtml(token);
+            }
           }
         }
       }
