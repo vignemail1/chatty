@@ -252,9 +252,6 @@
       maxMessages: 250, bc: null, reconnectTimer: null, manualClose: false
     };
 
-    // ---------------------------------------------------------------------------
-    // Emote map : { word -> { url, source } }  Priorité : 7TV > BTTV > FFZ
-    // ---------------------------------------------------------------------------
     const emoteMap = new Map();
 
     function setEmoteDot(id, lblId, st, text) {
@@ -268,27 +265,15 @@
       return r.json();
     }
 
-    /**
-     * Charge les emotes 7TV.
-     * L'API v3 requiert l'ID Twitch numérique : /v3/users/twitch/{twitch_id}
-     * On obtient cet ID via l'endpoint BTTV qui renvoie { channelId, ... }
-     * sans avoir besoin de token OAuth Twitch.
-     *
-     * Fix : utilisait data.id (ID BTTV) au lieu de data.channelId (ID Twitch numérique)
-     */
     async function load7TV(login) {
       setEmoteDot('dot7tv', 'lbl7tv', '', 'chargement...');
       try {
         let twitchId = null;
         try {
           const bttv = await safeFetch(`https://api.betterttv.net/3/cached/users/twitch/${encodeURIComponent(login)}`);
-          // channelId = ID numérique Twitch du channel (pas data.id qui est l'ID BTTV)
           twitchId = bttv.channelId ? String(bttv.channelId) : null;
         } catch(_) {}
-
         let count = 0;
-
-        // Emotes du channel (si on a l'ID Twitch numérique)
         if (twitchId) {
           try {
             const data = await safeFetch(`https://7tv.io/v3/users/twitch/${encodeURIComponent(twitchId)}`);
@@ -300,10 +285,8 @@
               const url = 'https:' + e.data.host.url + '/' + file.name;
               if (!emoteMap.has(name)) { emoteMap.set(name, { url, source: '7tv' }); count++; }
             }
-          } catch(_) { /* channel pas sur 7TV, ok */ }
+          } catch(_) {}
         }
-
-        // Emotes globales 7TV (pas besoin d'ID)
         const global = await safeFetch('https://7tv.io/v3/emote-sets/global');
         for (const e of global.emotes ?? []) {
           const name = e.name;
@@ -313,7 +296,6 @@
           const url = 'https:' + e.data.host.url + '/' + file.name;
           if (!emoteMap.has(name)) { emoteMap.set(name, { url, source: '7tv' }); count++; }
         }
-
         setEmoteDot('dot7tv', 'lbl7tv', 'ok', count + ' emotes' + (twitchId ? '' : ' (globales seulement)'));
       } catch(err) {
         setEmoteDot('dot7tv', 'lbl7tv', 'err', 'erreur (' + err.message + ')');
@@ -370,8 +352,6 @@
       emoteMap.clear();
       await Promise.allSettled([load7TV(login), loadBTTV(login), loadFFZ(login)]);
     }
-
-    // ---------------------------------------------------------------------------
 
     function getHistoryCount() {
       const v = parseInt(historyCountInput.value, 10);
@@ -470,6 +450,20 @@
       return result.sort((a, b) => a.start - b.start);
     }
 
+    /**
+     * Déduit le rôle de l'auteur à partir du tag IRC `badges`.
+     * broadcaster > moderator > vip > viewer
+     * Retourne : 'broadcaster' | 'moderator' | 'vip' | 'viewer'
+     */
+    function parseRole(badgesTag) {
+      if (!badgesTag) return 'viewer';
+      const badges = badgesTag.split(',').map(b => b.split('/')[0]);
+      if (badges.includes('broadcaster')) return 'broadcaster';
+      if (badges.includes('moderator'))   return 'moderator';
+      if (badges.includes('vip'))         return 'vip';
+      return 'viewer';
+    }
+
     function renderMessageHtml(rawMessage, twitchEmotes, thirdParty) {
       const map = thirdParty instanceof Map ? thirdParty : (thirdParty ? new Map(Object.entries(thirdParty)) : new Map());
       const chars = [...rawMessage];
@@ -488,7 +482,6 @@
         if (seg.type === 'img') {
           html += `<img class="emote" src="${escapeHtml(seg.url)}" alt="${escapeHtml(seg.name)}" title="${escapeHtml(seg.name)}" loading="lazy">`;
         } else {
-          // Split whitespace-aware : ne pas matcher les tokens vides ou purement whitespace
           const tokens = seg.value.split(/(\s+)/);
           for (const token of tokens) {
             if (!token) continue;
@@ -516,11 +509,14 @@
       );
       const rawMessage = m[3];
       const emotes = parseEmotes(tags.emotes || '', rawMessage);
+      const login  = (tags['login'] || m[2] || '').toLowerCase();
       return {
         id: tags.id || crypto.randomUUID(),
-        user: tags['display-name'] || m[2],
-        color: tags.color || '#c8d4ff',
-        message: rawMessage,
+        user:      tags['display-name'] || m[2],
+        login,
+        color:     tags.color || '#c8d4ff',
+        role:      parseRole(tags.badges || ''),
+        message:   rawMessage,
         emotes,
         timestamp: Number(tags['tmi-sent-ts'] || Date.now())
       };
@@ -611,7 +607,6 @@
       disconnect(false); state.manualClose = false;
       state.channel = channel.replace(/^#/,'').trim().toLowerCase();
       if (!state.channel) { setStatus('chaîne invalide.', 'error'); return; }
-      // Vider le chat et l'overlay à chaque nouvelle connexion
       state.messages = [];
       clearOverlay();
       loadThirdPartyEmotes(state.channel);
@@ -643,9 +638,16 @@
     disconnectBtn.addEventListener('click', () => disconnect(true));
     simulateBtn.addEventListener('click',   doSimulate);
     function doSimulate() {
-      const users = ['ViewerDemo','Chat_Fan','SuperViewer'];
-      const u = users[Math.floor(Math.random()*users.length)];
-      const fake = { id: crypto.randomUUID(), user: u, color: '#7c9cff', message: "Exemple de message mis en avant dans l'overlay OBS.", timestamp: Date.now(), emotes: [] };
+      const roles = ['broadcaster', 'moderator', 'vip', 'viewer'];
+      const users = ['StreameurDemo','ModDemo','VIPDemo','ViewerDemo'];
+      const idx = Math.floor(Math.random()*users.length);
+      const fake = {
+        id: crypto.randomUUID(),
+        user: users[idx], login: users[idx].toLowerCase(),
+        color: '#7c9cff', role: roles[idx],
+        message: "Exemple de message mis en avant dans l'overlay OBS.",
+        timestamp: Date.now(), emotes: []
+      };
       addMessage(fake); toggleMessage(fake.id);
     }
 
