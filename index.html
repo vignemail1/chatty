@@ -22,17 +22,21 @@
     .panel { background: rgba(19,26,46,.88); backdrop-filter: blur(12px); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
 
     .sidebar { display: flex; flex-direction: column; overflow: hidden; }
-    .sidebar-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 16px 18px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
-    .sidebar-title { font-size: 18px; font-weight: 800; margin: 0; }
-    .sidebar-subtitle { font-size: 12px; color: var(--muted); margin: 2px 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .toggle-btn { appearance: none; border: 1px solid var(--border); border-radius: 10px; background: var(--panel-3); color: var(--muted); width: 34px; height: 34px; padding: 0; flex-shrink: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background .15s, color .15s; }
+    .sidebar-header { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .sidebar-title-wrap { flex: 1; min-width: 0; }
+    .sidebar-title { font-size: 17px; font-weight: 800; margin: 0; }
+    .sidebar-subtitle { font-size: 11px; color: var(--muted); margin: 1px 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .header-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .toggle-btn { appearance: none; border: 1px solid var(--border); border-radius: 10px; background: var(--panel-3); color: var(--muted); width: 32px; height: 32px; padding: 0; flex-shrink: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background .15s, color .15s; }
     .toggle-btn:hover { background: var(--panel-2); color: var(--text); }
     .toggle-btn svg { transition: transform .25s ease; }
     .sidebar.collapsed .toggle-btn svg { transform: rotate(180deg); }
+    .hdr-btn { appearance: none; border: 1px solid var(--border); border-radius: 10px; background: var(--panel-3); color: var(--muted); height: 32px; padding: 0 10px; font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; white-space: nowrap; transition: background .15s, color .15s, border-color .15s; }
+    .hdr-btn:hover { background: var(--panel-2); color: var(--text); }
+    .hdr-btn.danger { border-color: rgba(255,107,138,.35); color: var(--danger); }
+    .hdr-btn.danger:hover { background: rgba(255,107,138,.12); border-color: rgba(255,107,138,.6); color: var(--danger); }
     .sidebar-body { display: flex; flex-direction: column; gap: 16px; padding: 18px; overflow: hidden; max-height: 9999px; transition: max-height .35s ease, opacity .25s ease, padding .25s ease; opacity: 1; }
     .sidebar.collapsed .sidebar-body { max-height: 0; opacity: 0; padding-top: 0; padding-bottom: 0; }
-    .sidebar-summary { padding: 12px 18px; display: none; flex-direction: column; gap: 8px; }
-    .sidebar.collapsed .sidebar-summary { display: flex; }
 
     .stack { display: grid; gap: 12px; }
     .row { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
@@ -49,8 +53,6 @@
     button.secondary { background: var(--panel-3); color: var(--text); border: 1px solid var(--border); }
     button.danger { background: linear-gradient(135deg, var(--danger), #ff456e); }
     button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
-    .status { padding: 11px 14px; border-radius: 12px; background: rgba(255,255,255,.04); border: 1px solid var(--border); font-size: 13px; color: var(--muted); }
-    .status strong { color: var(--text); }
     .links { display: grid; gap: 8px; }
     .linkbox { border: 1px dashed rgba(124,156,255,.35); border-radius: 12px; padding: 10px 12px; background: rgba(124,156,255,.08); font-size: 12px; color: var(--muted); word-break: break-all; }
     .linkbox a { color: #c8d4ff; }
@@ -102,18 +104,17 @@
   <div class="app">
     <aside class="panel sidebar" id="sidebar">
       <div class="sidebar-header">
-        <div>
+        <div class="sidebar-title-wrap">
           <p class="sidebar-title">Chatty</p>
           <p class="sidebar-subtitle" id="sidebarSubtitle">Panneau de contrôle</p>
         </div>
-        <button class="toggle-btn" id="toggleBtn" aria-label="Replier/déplier">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 10 8 6 12 10"/></svg>
-        </button>
-      </div>
-
-      <div class="sidebar-summary">
-        <div class="status" id="statusSummary" style="font-size:12px"><strong>État :</strong> en attente.</div>
-        <button id="simulateBtnCompact" class="danger" style="font-size:12px;padding:8px 10px">Test</button>
+        <div class="header-actions">
+          <button class="hdr-btn danger" id="clearBtn" title="Effacer l'overlay">✕ Effacer</button>
+          <button class="hdr-btn" id="simulateBtn" title="Envoyer un message de test">▶ Test</button>
+          <button class="toggle-btn" id="toggleBtn" aria-label="Replier/déplier">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 10 8 6 12 10"/></svg>
+          </button>
+        </div>
       </div>
 
       <div class="sidebar-body">
@@ -132,8 +133,6 @@
             <button id="disconnectBtn" class="secondary">Déconnecter</button>
           </div>
         </div>
-
-        <div class="status" id="statusBox"><strong>État :</strong> en attente.</div>
 
         <div class="stack">
           <div class="section-title">Emotes tierces</div>
@@ -172,13 +171,8 @@
             <span>Styles appliqués à <code style="font-size:11px;opacity:.7">.card</code> dans l'overlay</span>
             <textarea id="customCss" spellcheck="false" placeholder="/* votre CSS ici */"></textarea>
           </label>
-          <div class="row">
-            <button id="applyCssBtn" class="secondary" style="font-size:12px;padding:9px 12px">Appliquer le CSS</button>
-            <button id="clearBtn" class="secondary" style="font-size:12px;padding:9px 12px">Effacer overlay</button>
-          </div>
+          <button id="applyCssBtn" class="secondary" style="font-size:12px;padding:9px 12px">Appliquer le CSS</button>
         </div>
-
-        <button id="simulateBtn" class="danger">Message test</button>
 
         <div class="links">
           <div class="linkbox"><strong>Panneau :</strong><br><a id="controlLink" href="#" target="_blank" rel="noopener noreferrer"></a></div>
@@ -208,14 +202,11 @@
     const disconnectBtn     = document.getElementById('disconnectBtn');
     const clearBtn          = document.getElementById('clearBtn');
     const simulateBtn       = document.getElementById('simulateBtn');
-    const simulateBtnC      = document.getElementById('simulateBtnCompact');
     const titleInput        = document.getElementById('overlayTitle');
     const historyCountInput = document.getElementById('historyCount');
     const customCssArea     = document.getElementById('customCss');
     const applyCssBtn       = document.getElementById('applyCssBtn');
     const chatList          = document.getElementById('chatList');
-    const statusBox         = document.getElementById('statusBox');
-    const statusSummary     = document.getElementById('statusSummary');
     const messageCount      = document.getElementById('messageCount');
     const controlLink       = document.getElementById('controlLink');
     const overlayLink       = document.getElementById('overlayLink');
@@ -426,10 +417,6 @@
     }
 
     function setStatus(text, tone) {
-      const html = '<strong>État :</strong> ' + text;
-      const bg   = tone==='error' ? 'rgba(255,107,138,.08)' : tone==='ok' ? 'rgba(93,228,199,.08)' : 'rgba(255,255,255,.04)';
-      const bd   = tone==='error' ? 'rgba(255,107,138,.35)' : tone==='ok' ? 'rgba(93,228,199,.35)' : 'var(--border)';
-      [statusBox, statusSummary].forEach(el => { el.innerHTML = html; el.style.background = bg; el.style.borderColor = bd; });
       sidebarSub.textContent = tone==='ok' && state.channel ? '🟢 #'+state.channel : tone==='error' ? '🔴 Déconnecté' : 'Panneau de contrôle';
     }
 
@@ -652,7 +639,6 @@
     connectBtn.addEventListener('click',    () => connect(channelInput.value));
     disconnectBtn.addEventListener('click', () => disconnect(true));
     simulateBtn.addEventListener('click',   doSimulate);
-    simulateBtnC.addEventListener('click',  doSimulate);
     function doSimulate() {
       const users = ['ViewerDemo','Chat_Fan','SuperViewer'];
       const u = users[Math.floor(Math.random()*users.length)];
