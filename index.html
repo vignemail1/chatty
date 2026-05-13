@@ -63,13 +63,12 @@
     .emote-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
     .emote-dot.ok { background: var(--accent-2); }
     .emote-dot.err { background: var(--danger); }
-    /* position grid picker */
     .pos-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
     .pos-btn {
       appearance: none; border: 1px solid var(--border); border-radius: 10px;
       background: var(--panel-2); color: var(--muted); padding: 8px 4px;
       font-size: 11px; font-weight: 600; cursor: pointer;
-      transition: background .15s, border-color .15s, color .15s, transform .1s;
+      transition: background .15s, border-color .15s, color .15s;
       text-align: center; line-height: 1.3;
     }
     .pos-btn:hover { background: var(--panel-3); color: var(--text); }
@@ -204,27 +203,27 @@
   </div>
 
   <script>
-    const channelInput  = document.getElementById('channel');
-    const connectBtn    = document.getElementById('connectBtn');
-    const disconnectBtn = document.getElementById('disconnectBtn');
-    const clearBtn      = document.getElementById('clearBtn');
-    const simulateBtn   = document.getElementById('simulateBtn');
-    const simulateBtnC  = document.getElementById('simulateBtnCompact');
-    const titleInput    = document.getElementById('overlayTitle');
+    const channelInput      = document.getElementById('channel');
+    const connectBtn        = document.getElementById('connectBtn');
+    const disconnectBtn     = document.getElementById('disconnectBtn');
+    const clearBtn          = document.getElementById('clearBtn');
+    const simulateBtn       = document.getElementById('simulateBtn');
+    const simulateBtnC      = document.getElementById('simulateBtnCompact');
+    const titleInput        = document.getElementById('overlayTitle');
     const historyCountInput = document.getElementById('historyCount');
-    const customCssArea = document.getElementById('customCss');
-    const applyCssBtn   = document.getElementById('applyCssBtn');
-    const chatList      = document.getElementById('chatList');
-    const statusBox     = document.getElementById('statusBox');
-    const statusSummary = document.getElementById('statusSummary');
-    const messageCount  = document.getElementById('messageCount');
-    const controlLink   = document.getElementById('controlLink');
-    const overlayLink   = document.getElementById('overlayLink');
-    const sidebar       = document.getElementById('sidebar');
-    const toggleBtn     = document.getElementById('toggleBtn');
-    const sidebarSub    = document.getElementById('sidebarSubtitle');
-    const posGrid       = document.getElementById('posGrid');
-    const leadText      = document.getElementById('leadText');
+    const customCssArea     = document.getElementById('customCss');
+    const applyCssBtn       = document.getElementById('applyCssBtn');
+    const chatList          = document.getElementById('chatList');
+    const statusBox         = document.getElementById('statusBox');
+    const statusSummary     = document.getElementById('statusSummary');
+    const messageCount      = document.getElementById('messageCount');
+    const controlLink       = document.getElementById('controlLink');
+    const overlayLink       = document.getElementById('overlayLink');
+    const sidebar           = document.getElementById('sidebar');
+    const toggleBtn         = document.getElementById('toggleBtn');
+    const sidebarSub        = document.getElementById('sidebarSubtitle');
+    const posGrid           = document.getElementById('posGrid');
+    const leadText          = document.getElementById('leadText');
 
     const DEFAULT_CSS = [
       '/* Opacité de la boîte de message (90 %) */',
@@ -246,10 +245,7 @@
       '}'
     ].join('\n');
 
-    // Position courante de l'overlay
     let currentPosition = 'bottom-left';
-
-    // Mapping position -> classes CSS align-items / justify-content pour l'overlay
     const POS_ALIGN = {
       'top-left':     { alignItems: 'start',  justifyContent: 'start'  },
       'top-right':    { alignItems: 'start',  justifyContent: 'end'    },
@@ -266,16 +262,13 @@
     };
 
     // ---------------------------------------------------------------------------
-    // Emote map : { word -> { url, source } }
-    // Priorité : 7TV > BTTV > FFZ
+    // Emote map : { word -> { url, source } }  Priorité : 7TV > BTTV > FFZ
     // ---------------------------------------------------------------------------
     const emoteMap = new Map();
 
     function setEmoteDot(id, lblId, st, text) {
-      const dot = document.getElementById(id);
-      const lbl = document.getElementById(lblId);
-      dot.className = 'emote-dot' + (st === 'ok' ? ' ok' : st === 'err' ? ' err' : '');
-      lbl.textContent = text;
+      document.getElementById(id).className = 'emote-dot' + (st === 'ok' ? ' ok' : st === 'err' ? ' err' : '');
+      document.getElementById(lblId).textContent = text;
     }
 
     async function safeFetch(url) {
@@ -284,35 +277,72 @@
       return r.json();
     }
 
-    async function load7TV(login) {
-      setEmoteDot('dot7tv','lbl7tv','','chargement...');
+    /**
+     * Résout le login Twitch en ID numérique via l'API BTTV
+     * (qui stocke le providerId Twitch sans nécessiter de token).
+     * Retourne null si non trouvé.
+     */
+    async function resolveTwitchId(login) {
       try {
-        const data = await safeFetch(`https://7tv.io/v3/users/twitch/${encodeURIComponent(login)}`);
-        const emotes = data.emote_set?.emotes ?? [];
+        const data = await safeFetch(`https://api.betterttv.net/3/cached/users/twitch/${encodeURIComponent(login)}`);
+        // providerId = ID numérique Twitch (string)
+        return data.id || null;  // champ "id" = BTTV user id, on veut "channelId" ou similaire
+      } catch(_) { return null; }
+    }
+
+    /**
+     * Charge les emotes 7TV.
+     * L'API v3 requiert l’ID Twitch numérique : /v3/users/twitch/{twitch_id}
+     * On obtient cet ID via l’endpoint BTTV qui renvoie { channelId, ... }
+     * sans avoir besoin de token OAuth Twitch.
+     */
+    async function load7TV(login) {
+      setEmoteDot('dot7tv', 'lbl7tv', '', 'chargement...');
+      try {
+        // Obtenir l'ID Twitch numérique via BTTV
+        let twitchId = null;
+        try {
+          const bttv = await safeFetch(`https://api.betterttv.net/3/cached/users/twitch/${encodeURIComponent(login)}`);
+          // La réponse BTTV a "channelId" qui est l'ID numérique du channel Twitch
+          twitchId = bttv.channelId || null;
+        } catch(_) {}
+
         let count = 0;
-        for (const e of emotes) {
-          const name = e.name;
-          const file = e.data?.host?.files?.find(f => f.name === '2x.webp' || f.name === '1x.webp') || e.data?.host?.files?.[0];
-          if (!name || !file) continue;
-          const url = 'https:' + e.data.host.url + '/' + file.name;
-          if (!emoteMap.has(name)) { emoteMap.set(name, { url, source: '7tv' }); count++; }
+
+        // Emotes du channel (si on a l'ID)
+        if (twitchId) {
+          try {
+            const data = await safeFetch(`https://7tv.io/v3/users/twitch/${encodeURIComponent(twitchId)}`);
+            for (const e of data.emote_set?.emotes ?? []) {
+              const name = e.name;
+              const files = e.data?.host?.files ?? [];
+              const file = files.find(f => f.name === '2x.webp') || files.find(f => f.name === '1x.webp') || files[0];
+              if (!name || !file) continue;
+              const url = 'https:' + e.data.host.url + '/' + file.name;
+              if (!emoteMap.has(name)) { emoteMap.set(name, { url, source: '7tv' }); count++; }
+            }
+          } catch(_) { /* channel pas sur 7TV, ok */ }
         }
+
+        // Emotes globales 7TV (pas besoin d'ID)
         const global = await safeFetch('https://7tv.io/v3/emote-sets/global');
         for (const e of global.emotes ?? []) {
           const name = e.name;
-          const file = e.data?.host?.files?.find(f => f.name === '2x.webp' || f.name === '1x.webp') || e.data?.host?.files?.[0];
+          const files = e.data?.host?.files ?? [];
+          const file = files.find(f => f.name === '2x.webp') || files.find(f => f.name === '1x.webp') || files[0];
           if (!name || !file) continue;
           const url = 'https:' + e.data.host.url + '/' + file.name;
           if (!emoteMap.has(name)) { emoteMap.set(name, { url, source: '7tv' }); count++; }
         }
-        setEmoteDot('dot7tv','lbl7tv','ok', count + ' emotes');
+
+        setEmoteDot('dot7tv', 'lbl7tv', 'ok', count + ' emotes' + (twitchId ? '' : ' (globales seulement)'));
       } catch(err) {
-        setEmoteDot('dot7tv','lbl7tv','err','erreur (' + err.message + ')');
+        setEmoteDot('dot7tv', 'lbl7tv', 'err', 'erreur (' + err.message + ')');
       }
     }
 
     async function loadBTTV(login) {
-      setEmoteDot('dotBttv','lblBttv','','chargement...');
+      setEmoteDot('dotBttv', 'lblBttv', '', 'chargement...');
       try {
         let count = 0;
         const global = await safeFetch('https://api.betterttv.net/3/cached/emotes/global');
@@ -325,14 +355,14 @@
             if (!emoteMap.has(e.code)) { emoteMap.set(e.code, { url: `https://cdn.betterttv.net/emote/${e.id}/2x`, source: 'bttv' }); count++; }
           }
         } catch(_) {}
-        setEmoteDot('dotBttv','lblBttv','ok', count + ' emotes');
+        setEmoteDot('dotBttv', 'lblBttv', 'ok', count + ' emotes');
       } catch(err) {
-        setEmoteDot('dotBttv','lblBttv','err','erreur (' + err.message + ')');
+        setEmoteDot('dotBttv', 'lblBttv', 'err', 'erreur (' + err.message + ')');
       }
     }
 
     async function loadFFZ(login) {
-      setEmoteDot('dotFfz','lblFfz','','chargement...');
+      setEmoteDot('dotFfz', 'lblFfz', '', 'chargement...');
       try {
         let count = 0;
         const global = await safeFetch('https://api.frankerfacez.com/v1/set/global');
@@ -351,19 +381,19 @@
             }
           }
         } catch(_) {}
-        setEmoteDot('dotFfz','lblFfz','ok', count + ' emotes');
+        setEmoteDot('dotFfz', 'lblFfz', 'ok', count + ' emotes');
       } catch(err) {
-        setEmoteDot('dotFfz','lblFfz','err','erreur (' + err.message + ')');
+        setEmoteDot('dotFfz', 'lblFfz', 'err', 'erreur (' + err.message + ')');
       }
     }
 
     async function loadThirdPartyEmotes(login) {
       emoteMap.clear();
+      // BTTV en premier car load7TV en a besoin pour résoudre l'ID
+      // On lance quand même en parallèle — load7TV fait son propre appel BTTV en interne
       await Promise.allSettled([load7TV(login), loadBTTV(login), loadFFZ(login)]);
     }
 
-    // ---------------------------------------------------------------------------
-    // Helpers
     // ---------------------------------------------------------------------------
 
     function getHistoryCount() {
@@ -377,13 +407,9 @@
     }
     historyCountInput.addEventListener('input', () => {
       updateLeadText();
-      // Si un historique est déjà affiché, le mettre à jour en direct
       if (state.historyUser) showUserHistory(state.historyUser, true);
     });
 
-    // ---------------------------------------------------------------------------
-    // Position
-    // ---------------------------------------------------------------------------
     posGrid.addEventListener('click', e => {
       const btn = e.target.closest('.pos-btn');
       if (!btn) return;
@@ -402,8 +428,6 @@
         localStorage.setItem('twitch-highlight-sync', JSON.stringify({ ...(s ? JSON.parse(s) : {}), ...payload }));
       } catch(_) {}
     }
-
-    // ---------------------------------------------------------------------------
 
     toggleBtn.addEventListener('click', () => sidebar.classList.toggle('collapsed'));
 
@@ -446,7 +470,10 @@
     function publishCssOnly() {
       const p = { type: 'css', customCss: customCssArea.value, emittedAt: Date.now() };
       if (state.bc) state.bc.postMessage(p);
-      try { const s = localStorage.getItem('twitch-highlight-sync'); localStorage.setItem('twitch-highlight-sync', JSON.stringify({ ...(s ? JSON.parse(s) : {}), customCss: customCssArea.value })); } catch(_) {}
+      try {
+        const s = localStorage.getItem('twitch-highlight-sync');
+        localStorage.setItem('twitch-highlight-sync', JSON.stringify({ ...(s ? JSON.parse(s) : {}), customCss: customCssArea.value }));
+      } catch(_) {}
     }
     applyCssBtn.addEventListener('click', publishCssOnly);
 
@@ -488,14 +515,11 @@
         if (seg.type === 'img') {
           html += `<img class="emote" src="${escapeHtml(seg.url)}" alt="${escapeHtml(seg.name)}" title="${escapeHtml(seg.name)}" loading="lazy">`;
         } else {
-          const tokens = seg.value.split(/(\s+)/);
-          for (const token of tokens) {
+          for (const token of seg.value.split(/(\s+)/)) {
             const tp = map.get(token);
-            if (tp) {
-              html += `<img class="emote" src="${escapeHtml(tp.url)}" alt="${escapeHtml(token)}" title="${escapeHtml(token)} (${escapeHtml(tp.source)})" loading="lazy">`;
-            } else {
-              html += escapeHtml(token);
-            }
+            html += tp
+              ? `<img class="emote" src="${escapeHtml(tp.url)}" alt="${escapeHtml(token)}" title="${escapeHtml(token)} (${escapeHtml(tp.source)})" loading="lazy">`
+              : escapeHtml(token);
           }
         }
       }
@@ -662,7 +686,6 @@
 
     makeLinks(); initBridge(); updateLeadText();
     customCssArea.value = DEFAULT_CSS;
-    // Publier la position par défaut au démarrage
     publishPosition();
     try {
       const ch = new URLSearchParams(window.location.search).get('channel');

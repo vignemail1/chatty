@@ -28,7 +28,6 @@
       align-items: var(--overlay-align, end);
       justify-content: var(--overlay-justify, start);
       padding: 32px;
-      transition: align-items 0s, justify-content 0s;
     }
 
     .overlay {
@@ -40,7 +39,6 @@
       pointer-events: none;
     }
     .overlay.visible { opacity: 1; transform: translateY(0) scale(1); }
-    /* Animation de sortie selon la position */
     body[data-pos-v="top"]    .overlay:not(.visible) { transform: translateY(-18px) scale(.985); }
     body[data-pos-v="middle"] .overlay:not(.visible) { transform: scale(.985); }
     body[data-pos-v="bottom"] .overlay:not(.visible) { transform: translateY(18px) scale(.985); }
@@ -75,11 +73,18 @@
     }
     .message {
       font-size: clamp(28px, 2.8vw, 44px); line-height: 1.4; color: var(--text); font-weight: 700;
-      white-space: pre-wrap; word-break: break-word;
-      text-wrap: pretty;
+      white-space: pre-wrap; word-break: break-word; text-wrap: pretty;
       text-shadow: 0 2px 10px rgba(0,0,0,.22);
     }
-    .message img.emote, .history-text img.emote {
+    /* Emotes : taille héritée du contexte pour s'adapter automatiquement */
+    .message img.emote {
+      height: 1.3em;
+      width: auto;
+      vertical-align: middle;
+      margin: 0 2px;
+      display: inline-block;
+    }
+    .history-text img.emote {
       height: 1.3em;
       width: auto;
       vertical-align: middle;
@@ -88,7 +93,6 @@
     }
     .msg-meta { margin-top: 12px; color: var(--muted); font-size: 13px; }
 
-    /* Mode historique */
     .card.history-mode .topline { background: linear-gradient(90deg, rgba(93,228,199,.14), transparent 70%); }
     .history-list { display: flex; flex-direction: column; gap: 0; }
     .history-item {
@@ -151,31 +155,45 @@
       return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
+    /**
+     * Rendu HTML d'un message : emotes Twitch (positions IRC exactes)
+     * puis emotes tierces (remplacement token-par-token sur les segments texte).
+     *
+     * Les emotes Twitch sont toujours passées dans p.message.emotes (tableau
+     * [{id, start, end, name}] sérialisé par le panneau de contrôle).
+     * Les emotes tierces sont dans p.thirdPartyEmotes (objet plain).
+     */
     function renderMessageHtml(rawMessage, twitchEmotes, thirdParty) {
       const map = thirdParty ? new Map(Object.entries(thirdParty)) : new Map();
       const chars = [...rawMessage];
-      const sorted = (twitchEmotes || []).slice().sort((a, b) => a.start - b.start);
+      // S'assurer que les emotes Twitch sont bien des objets avec les bons champs
+      const sorted = (Array.isArray(twitchEmotes) ? twitchEmotes : []).slice().sort((a, b) => a.start - b.start);
+
       const segments = [];
       let cursor = 0;
       for (const em of sorted) {
+        if (typeof em.start !== 'number' || typeof em.end !== 'number') continue;
         if (em.start > cursor) segments.push({ type: 'text', value: chars.slice(cursor, em.start).join('') });
-        segments.push({ type: 'img', url: `https://static-cdn.jtvnw.net/emoticons/v2/${esc(em.id)}/default/dark/2.0`, name: em.name });
+        segments.push({
+          type: 'img',
+          url:  `https://static-cdn.jtvnw.net/emoticons/v2/${esc(String(em.id))}/default/dark/2.0`,
+          name: em.name || em.id
+        });
         cursor = em.end + 1;
       }
       if (cursor < chars.length) segments.push({ type: 'text', value: chars.slice(cursor).join('') });
       if (!segments.length) segments.push({ type: 'text', value: rawMessage });
+
       let html = '';
       for (const seg of segments) {
         if (seg.type === 'img') {
-          html += `<img class="emote" src="${esc(seg.url)}" alt="${esc(seg.name)}" title="${esc(seg.name)}" loading="lazy">`;
+          html += `<img class="emote" src="${seg.url}" alt="${esc(seg.name)}" title="${esc(seg.name)}" loading="lazy">`;
         } else {
           for (const token of seg.value.split(/(\s+)/)) {
             const tp = map.get(token);
-            if (tp) {
-              html += `<img class="emote" src="${esc(tp.url)}" alt="${esc(token)}" title="${esc(token)} (${esc(tp.source)})" loading="lazy">`;
-            } else {
-              html += esc(token);
-            }
+            html += tp
+              ? `<img class="emote" src="${esc(tp.url)}" alt="${esc(token)}" title="${esc(token)} (${esc(tp.source)})" loading="lazy">`
+              : esc(token);
           }
         }
       }
@@ -184,18 +202,10 @@
 
     function applyCustomCss(css) { customStyle.textContent = css || ''; }
 
-    /**
-     * Applique la position reçue du panneau.
-     * Modifie les variables CSS --overlay-align / --overlay-justify sur <body>
-     * et l'attribut data-pos-v pour l'animation de sortie.
-     */
     function applyPosition(p) {
       if (!p || !p.position) return;
-      const ai = p.alignItems   || 'end';
-      const jc = p.justifyContent || 'start';
-      document.body.style.setProperty('--overlay-align',   ai);
-      document.body.style.setProperty('--overlay-justify', jc);
-      // data-pos-v pour animer la sortie dans la bonne direction
+      document.body.style.setProperty('--overlay-align',   p.alignItems    || 'end');
+      document.body.style.setProperty('--overlay-justify', p.justifyContent || 'start');
       const posV = p.position.startsWith('top') ? 'top' : p.position.startsWith('bottom') ? 'bottom' : 'middle';
       document.body.setAttribute('data-pos-v', posV);
     }
@@ -207,8 +217,13 @@
       titleEl.textContent      = p.title || 'Message mis en avant';
       authorEl.style.color     = p.message.color || '#c8d4ff';
       authorNameEl.textContent = p.message.user  || 'Viewer';
-      messageEl.innerHTML      = renderMessageHtml(p.message.message || '', p.message.emotes || [], p.thirdPartyEmotes || null);
-      msgMetaEl.textContent    = (p.channel ? '#'+p.channel+' · ' : '') + formatTime(p.message.timestamp || Date.now());
+      // NOTE : p.message.emotes est un tableau plain (sérialisé JSON)
+      messageEl.innerHTML = renderMessageHtml(
+        p.message.message  || '',
+        p.message.emotes   || [],
+        p.thirdPartyEmotes || null
+      );
+      msgMetaEl.textContent = (p.channel ? '#'+p.channel+' · ' : '') + formatTime(p.message.timestamp || Date.now());
       overlay.classList.add('visible');
     }
 
@@ -233,20 +248,18 @@
     }
 
     function handlePayload(p) {
-      if (!p || !p.type) {
-        // Payload de position pur (type: 'position')
-        if (p && p.position) applyPosition(p);
-        return;
-      }
+      if (!p) return;
+      if (p.position) applyPosition(p);
+      if (p.customCss !== undefined) applyCustomCss(p.customCss);
+      if (!p.type) return;
       if (p.type === 'highlight') showHighlight(p);
       if (p.type === 'history')   showHistory(p);
       if (p.type === 'clear')     overlay.classList.remove('visible');
+      if (p.type === 'css')       applyCustomCss(p.customCss || '');
       if (p.type === 'position')  applyPosition(p);
-      if (p.type === 'css' || p.customCss !== undefined) applyCustomCss(p.customCss || '');
-      // Chaque payload complet transporte aussi la position
-      if (p.position) applyPosition(p);
     }
 
+    // Restaurer l'état depuis localStorage au chargement
     try {
       const saved = localStorage.getItem('twitch-highlight-sync');
       if (saved) {
